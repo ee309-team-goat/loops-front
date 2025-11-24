@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Sun, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, Info } from "lucide-react"
+import { ChevronRight, Sun, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, Info, User } from "lucide-react"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { useRouter } from "next/navigation"
 
@@ -14,6 +14,7 @@ export default function MyPage() {
     {
       title: "설정",
       items: [
+        { icon: User, label: "프로필 정보", description: "나의 프로필 및 학습 통계", path: "/my-page/profile" },
         { icon: Sun, label: "화면", description: "다크 모드 설정, 학습 화면 테마", path: "/my-page/display" },
         {
           icon: Bell,
@@ -53,35 +54,6 @@ export default function MyPage() {
 
       {/* Profile Section */}
       <div className="bg-white p-6 space-y-4">
-        {/* Premium Banner */}
-        <div className="relative bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white overflow-hidden">
-          <div className="absolute top-4 right-4 text-6xl opacity-20">🎁</div>
-          <div className="relative z-10">
-            <div className="text-xl font-bold mb-1">me</div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2 inline-block">
-              <span className="text-yellow-300 font-bold">FREE</span> 지금 바로!
-            </div>
-            <div className="mt-2 text-sm">7일 무료 체험해 보세요!</div>
-          </div>
-        </div>
-
-        <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-6 rounded-xl text-lg font-bold">
-          <span className="bg-white text-indigo-600 px-2 py-1 rounded-md mr-2 text-sm">P</span>
-          프리미엄 멤버십 구독하기
-        </Button>
-
-        {/* Verification and Friends */}
-        <div className="grid grid-cols-2 gap-3">
-          <button className="flex items-center justify-center gap-2 bg-gray-50 rounded-xl py-4 hover:bg-gray-100 transition-colors">
-            <span className="text-2xl">#</span>
-            <span className="font-medium text-gray-700">인증번호</span>
-          </button>
-          <button className="flex items-center justify-center gap-2 bg-gray-50 rounded-xl py-4 hover:bg-gray-100 transition-colors">
-            <span className="text-2xl">👥</span>
-            <span className="font-medium text-gray-700">친구 관리</span>
-          </button>
-        </div>
-
         {/* Guest Warning */}
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
           <div className="flex items-start gap-3">
