@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, TrendingUp, Calendar, AlertCircle } from "lucide-react"
+import { BottomTabNav } from "@/components/bottom-tab-nav"
 
 export default function StatisticsPage() {
   const router = useRouter()
@@ -150,6 +151,9 @@ export default function StatisticsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Bottom Tab Navigation */}
+      <BottomTabNav />
     </div>
   )
 }

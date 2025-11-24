@@ -1,10 +1,11 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Flame, BookOpen, Clock, Settings, BarChart3 } from "lucide-react"
+import { Flame, BookOpen, Clock, Bell, BarChart3 } from "lucide-react"
+import { BottomTabNav } from "@/components/bottom-tab-nav"
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-20 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       {/* Header */}
       <div className="bg-white p-6 pb-8 rounded-b-3xl shadow-sm space-y-6">
         <div className="flex justify-between items-center">
@@ -12,9 +13,9 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold text-gray-900">안녕하세요, 준호님! 👋</h1>
             <p className="text-gray-500">오늘도 목표를 향해 달려볼까요?</p>
           </div>
-          <Link href="/settings">
+          <Link href="/notifications">
             <Button variant="ghost" size="icon">
-              <Settings className="w-5 h-5 text-gray-500" />
+              <Bell className="w-5 h-5 text-gray-500" />
             </Button>
           </Link>
         </div>
@@ -106,6 +107,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Bottom Tab Navigation */}
+      <BottomTabNav />
     </div>
   )
 }
