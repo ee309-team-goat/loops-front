@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, TrendingUp, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
@@ -8,17 +8,27 @@ import { BottomTabNav } from "@/components/bottom-tab-nav"
 
 export default function StatisticsPage() {
   const router = useRouter()
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null) // Default to null instead of 6
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null)
 
-  const weeklyData = [
-    { day: "월", count: 18, date: "2025.11.24" },
-    { day: "화", count: 22, date: "2025.11.25" },
-    { day: "수", count: 15, date: "2025.11.26" },
-    { day: "목", count: 25, date: "2025.11.27" },
-    { day: "금", count: 20, date: "2025.11.28" },
-    { day: "토", count: 12, date: "2025.11.29" },
-    { day: "일", count: 8, date: "2025.11.30" },
-  ]
+  const weeklyData = useMemo(() => {
+    const today = new Date()
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"]
+    const data = []
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(today.getDate() - i)
+      const dayOfWeek = date.getDay()
+      const dateStr = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`
+
+      data.push({
+        day: i === 0 ? "오늘" : dayNames[dayOfWeek],
+        count: Math.floor(Math.random() * 30) + 5,
+        date: dateStr,
+      })
+    }
+    return data
+  }, [])
 
   const weakWords = [
     { word: "accommodate", wrongCount: 5, accuracy: 40 },
@@ -84,32 +94,25 @@ export default function StatisticsPage() {
             <span className="text-sm text-gray-500">이번 주</span>
           </div>
 
-          <div className="relative">
-            {/* Tooltip */}
-            {selectedDayIndex !== null && (
+          <div className="flex items-end justify-between h-48 gap-3">
+            {weeklyData.map((data, index) => (
               <div
-                className="absolute -top-2 transform -translate-y-full bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-lg z-10"
-                style={{
-                  left: `${(selectedDayIndex / 6) * 85 + 7}%`,
-                  transform: "translateX(-50%) translateY(-100%)",
-                }}
+                key={index}
+                className="flex-1 flex flex-col items-center cursor-pointer"
+                onClick={() => handleDayClick(index)}
               >
-                <div className="text-sm font-bold text-gray-900">{weeklyData[selectedDayIndex].date}</div>
-                <div className="text-sm text-gray-600">{weeklyData[selectedDayIndex].count}문제</div>
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                  <div className="w-3 h-3 bg-white border-r border-b border-gray-200 transform rotate-45 -translate-y-1.5" />
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-end justify-between h-40 gap-2 pt-8">
-              {weeklyData.map((data, index) => (
-                <div
-                  key={data.day}
-                  className="flex-1 flex flex-col items-center gap-2 cursor-pointer"
-                  onClick={() => handleDayClick(index)} // Use toggle handler
-                >
-                  <div className="w-full bg-gray-100 rounded-t-lg relative flex-1 flex items-end min-h-[100px]">
+                {/* Tooltip positioned directly above the bar */}
+                <div className="relative flex-1 w-full flex flex-col items-center justify-end">
+                  {selectedDayIndex === index && (
+                    <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 -translate-y-full bg-white border border-gray-200 rounded-lg px-2 py-1 shadow-md z-10 whitespace-nowrap">
+                      <div className="text-[11px] font-bold text-gray-900">{data.date}</div>
+                      <div className="text-[10px] text-gray-600">{data.count}문제</div>
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
+                        <div className="w-2 h-2 bg-white border-r border-b border-gray-200 transform rotate-45 -translate-y-1" />
+                      </div>
+                    </div>
+                  )}
+                  <div className="w-full bg-gray-100 rounded-t-lg relative h-[100px] flex items-end">
                     <div
                       className={`w-full rounded-t-lg transition-all ${
                         selectedDayIndex === index ? "bg-indigo-600" : "bg-indigo-400"
@@ -117,17 +120,16 @@ export default function StatisticsPage() {
                       style={{ height: `${(data.count / maxCount) * 100}%` }}
                     />
                   </div>
-                  <span
-                    className={`text-xs font-medium ${
-                      selectedDayIndex === index ? "text-indigo-600" : "text-gray-600"
-                    }`}
-                  >
-                    {data.day}
-                  </span>
-                  <span className="text-xs text-gray-400">{data.count}</span>
                 </div>
-              ))}
-            </div>
+                <span
+                  className={`text-xs font-medium mt-2 ${
+                    selectedDayIndex === index ? "text-indigo-600" : "text-gray-600"
+                  }`}
+                >
+                  {data.day}
+                </span>
+              </div>
+            ))}
           </div>
 
           <div className="pt-4 border-t border-gray-100 grid grid-cols-3 gap-4">
