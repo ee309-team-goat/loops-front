@@ -8,7 +8,7 @@ import { BottomTabNav } from "@/components/bottom-tab-nav"
 
 export default function StatisticsPage() {
   const router = useRouter()
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(6) // Default to today
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null) // Default to null instead of 6
 
   const weeklyData = [
     { day: "월", count: 18, date: "2025.11.24" },
@@ -55,6 +55,14 @@ export default function StatisticsPage() {
 
   const maxCount = Math.max(...weeklyData.map((d) => d.count))
 
+  const handleDayClick = (index: number) => {
+    if (selectedDayIndex === index) {
+      setSelectedDayIndex(null)
+    } else {
+      setSelectedDayIndex(index)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
@@ -99,7 +107,7 @@ export default function StatisticsPage() {
                 <div
                   key={data.day}
                   className="flex-1 flex flex-col items-center gap-2 cursor-pointer"
-                  onClick={() => setSelectedDayIndex(index)}
+                  onClick={() => handleDayClick(index)} // Use toggle handler
                 >
                   <div className="w-full bg-gray-100 rounded-t-lg relative flex-1 flex items-end min-h-[100px]">
                     <div
@@ -153,16 +161,16 @@ export default function StatisticsPage() {
           </div>
 
           {/* Color Legend */}
-          <div className="flex items-center gap-1 text-xs text-gray-500">
+          <div className="flex items-center gap-1 text-[9px] text-gray-500">
             <span>Less</span>
             {heatmapColors.map((color, i) => (
-              <div key={i} className={`w-3 h-3 rounded-sm ${color}`} />
+              <div key={i} className={`w-2 h-2 rounded-[3px] ${color}`} /> // Changed from rounded-sm (circles) to rounded-[3px] (rounded squares)
             ))}
             <span>More</span>
           </div>
 
           {/* Yearly Heatmap - First 6 months */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <div className="flex gap-1 text-xs text-gray-400 pl-6">
               {months.slice(0, 6).map((month) => (
                 <div key={month} className="flex-1 text-center">
@@ -171,14 +179,14 @@ export default function StatisticsPage() {
               ))}
             </div>
             {daysOfWeek.map((day, dayIndex) => (
-              <div key={day} className="flex items-center gap-1">
+              <div key={day} className="flex items-center gap-0.5">
                 <span className="text-xs text-gray-400 w-5">{day}</span>
                 <div className="flex-1 flex gap-[2px]">
                   {heatmapData.slice(0, 26).map((week, weekIndex) => (
                     <div
                       key={weekIndex}
-                      className={`flex-1 aspect-square rounded-sm ${heatmapColors[week[dayIndex]]}`}
-                      style={{ maxWidth: "8px", maxHeight: "8px" }}
+                      className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
+                      style={{ maxWidth: "10px", maxHeight: "10px" }}
                     />
                   ))}
                 </div>
@@ -187,7 +195,7 @@ export default function StatisticsPage() {
           </div>
 
           {/* Yearly Heatmap - Second 6 months */}
-          <div className="space-y-1 mt-4">
+          <div className="space-y-0.5 mt-4">
             <div className="flex gap-1 text-xs text-gray-400 pl-6">
               {months.slice(6, 12).map((month) => (
                 <div key={month} className="flex-1 text-center">
@@ -196,14 +204,14 @@ export default function StatisticsPage() {
               ))}
             </div>
             {daysOfWeek.map((day, dayIndex) => (
-              <div key={day} className="flex items-center gap-1">
+              <div key={day} className="flex items-center gap-0.5">
                 <span className="text-xs text-gray-400 w-5">{day}</span>
                 <div className="flex-1 flex gap-[2px]">
                   {heatmapData.slice(0, 26).map((week, weekIndex) => (
                     <div
                       key={weekIndex}
-                      className={`flex-1 aspect-square rounded-sm ${heatmapColors[week[dayIndex]]}`}
-                      style={{ maxWidth: "8px", maxHeight: "8px" }}
+                      className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
+                      style={{ maxWidth: "10px", maxHeight: "10px" }}
                     />
                   ))}
                 </div>
