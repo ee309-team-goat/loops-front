@@ -164,59 +164,65 @@ export default function StatisticsPage() {
           <div className="flex items-center gap-1 text-[9px] text-gray-500">
             <span>Less</span>
             {heatmapColors.map((color, i) => (
-              <div key={i} className={`w-2 h-2 rounded-[3px] ${color}`} /> // Changed from rounded-sm (circles) to rounded-[3px] (rounded squares)
+              <div key={i} className={`w-2 h-2 rounded-[2px] ${color}`} />
             ))}
             <span>More</span>
           </div>
 
           {/* Yearly Heatmap - First 6 months */}
-          <div className="space-y-0.5">
-            <div className="flex gap-1 text-xs text-gray-400 pl-6">
+          <div>
+            <div className="flex text-[10px] text-gray-400 ml-8">
               {months.slice(0, 6).map((month) => (
                 <div key={month} className="flex-1 text-center">
                   {month}
                 </div>
               ))}
             </div>
-            {daysOfWeek.map((day, dayIndex) => (
-              <div key={day} className="flex items-center gap-0.5">
-                <span className="text-xs text-gray-400 w-5">{day}</span>
-                <div className="flex-1 flex gap-[2px]">
-                  {heatmapData.slice(0, 26).map((week, weekIndex) => (
-                    <div
-                      key={weekIndex}
-                      className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
-                      style={{ maxWidth: "10px", maxHeight: "10px" }}
-                    />
-                  ))}
+
+            <div className="mt-1 space-y-[2px]">
+              {daysOfWeek.map((day, dayIndex) => (
+                <div key={day} className="flex items-center gap-2">
+                  <span className="text-[10px] leading-none text-gray-400 w-6 flex-shrink-0">{day}</span>
+
+                  <div className="flex gap-[2px] flex-1">
+                    {heatmapData.map((week, weekIndex) => (
+                      <div
+                        key={weekIndex}
+                        className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* Yearly Heatmap - Second 6 months */}
-          <div className="space-y-0.5 mt-4">
-            <div className="flex gap-1 text-xs text-gray-400 pl-6">
+          <div>
+            <div className="flex text-[10px] text-gray-400 ml-8">
               {months.slice(6, 12).map((month) => (
                 <div key={month} className="flex-1 text-center">
                   {month}
                 </div>
               ))}
             </div>
-            {daysOfWeek.map((day, dayIndex) => (
-              <div key={day} className="flex items-center gap-0.5">
-                <span className="text-xs text-gray-400 w-5">{day}</span>
-                <div className="flex-1 flex gap-[2px]">
-                  {heatmapData.slice(0, 26).map((week, weekIndex) => (
-                    <div
-                      key={weekIndex}
-                      className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
-                      style={{ maxWidth: "10px", maxHeight: "10px" }}
-                    />
-                  ))}
+
+            <div className="mt-1 space-y-[2px]">
+              {daysOfWeek.map((day, dayIndex) => (
+                <div key={day} className="flex items-center gap-2">
+                  <span className="text-[10px] leading-none text-gray-400 w-6 flex-shrink-0">{day}</span>
+
+                  <div className="flex gap-[2px] flex-1">
+                    {heatmapData.map((week, weekIndex) => (
+                      <div
+                        key={weekIndex}
+                        className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
