@@ -1,21 +1,59 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, Check } from "lucide-react"
+
+type QuizMode = "flashcard" | "multiple-choice" | "typing"
+
+const QUIZ_MODES: { value: QuizMode; label: string }[] = [
+  { value: "flashcard", label: "플래시카드" },
+  { value: "multiple-choice", label: "객관식" },
+  { value: "typing", label: "직접 입력" },
+]
 
 export default function VocabularySettingsPage() {
   const router = useRouter()
   const [settings, setSettings] = useState({
     dailyGoal: 20,
-    quizMode: "multiple-choice",
+    quizModes: ["flashcard"] as QuizMode[],
     difficulty: "medium",
   })
 
+  useEffect(() => {
+    const saved = localStorage.getItem("vocabularySettings")
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setSettings(parsed)
+      } catch (e) {
+        console.error("Failed to parse settings")
+      }
+    }
+  }, [])
+
   const updateSetting = (key: string, value: any) => {
-    setSettings((prev) => ({ ...prev, [key]: value }))
-    console.log(`[v0] Updated ${key}:`, value)
+    setSettings((prev) => {
+      const newSettings = { ...prev, [key]: value }
+      localStorage.setItem("vocabularySettings", JSON.stringify(newSettings))
+      return newSettings
+    })
+  }
+
+  const toggleQuizMode = (mode: QuizMode) => {
+    const currentModes = settings.quizModes
+    let newModes: QuizMode[]
+
+    if (currentModes.includes(mode)) {
+      // 최소 1개는 선택되어야 함
+      if (currentModes.length === 1) return
+      newModes = currentModes.filter((m) => m !== mode)
+    } else {
+      newModes = [...currentModes, mode]
+    }
+
+    updateSetting("quizModes", newModes)
   }
 
   return (
@@ -43,17 +81,34 @@ export default function VocabularySettingsPage() {
             </select>
           </div>
 
-          <div className="space-y-2 pt-2 border-t border-gray-100">
-            <label className="block text-sm text-gray-700 font-medium">퀴즈 방식</label>
-            <select
-              value={settings.quizMode}
-              onChange={(e) => updateSetting("quizMode", e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="flashcard">플래시카드</option>
-              <option value="multiple-choice">객관식</option>
-              <option value="typing">직접 입력</option>
-            </select>
+          <div className="space-y-3 pt-2 border-t border-gray-100">
+            <label className="block text-sm text-gray-700 font-medium">퀴즈 방식 (복수 선택 가능)</label>
+            <div className="space-y-2">
+              {QUIZ_MODES.map((mode) => {
+                const isSelected = settings.quizModes.includes(mode.value)
+                return (
+                  <button
+                    key={mode.value}
+                    onClick={() => toggleQuizMode(mode.value)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
+                      isSelected
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="font-medium">{mode.label}</span>
+                    <div
+                      className={`w-5 h-5 rounded flex items-center justify-center ${
+                        isSelected ? "bg-indigo-500" : "border border-gray-300"
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-500">선택한 방식들이 랜덤하게 섞여서 출제됩니다.</p>
           </div>
 
           <div className="space-y-2 pt-2 border-t border-gray-100">

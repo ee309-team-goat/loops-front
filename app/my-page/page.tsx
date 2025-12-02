@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Sun, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, Info, User } from "lucide-react"
+import { ChevronRight, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, Info, User } from "lucide-react"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { useRouter } from "next/navigation"
 
@@ -14,7 +14,6 @@ export default function MyPage() {
     {
       title: "설정",
       items: [
-        { icon: Sun, label: "화면", description: "다크 모드 설정, 학습 화면 테마", path: "/my-page/display" },
         {
           icon: Bell,
           label: "알림",
