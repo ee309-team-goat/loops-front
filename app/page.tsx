@@ -1,9 +1,20 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
+const DEV_MODE = true
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-white">
+      {DEV_MODE && (
+        <Link href="/dashboard" className="absolute top-4 right-4">
+          <Button variant="ghost" size="sm" className="text-xs text-gray-400 hover:text-gray-600">
+            [DEV] Skip
+          </Button>
+        </Link>
+      )}
+      {/* END DEV SKIP BUTTON */}
+
       <div className="max-w-md w-full text-center space-y-8">
         <div className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight text-indigo-600">Loops</h1>
