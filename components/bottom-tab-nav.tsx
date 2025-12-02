@@ -15,7 +15,7 @@ export function BottomTabNav() {
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-inset-bottom z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-area-inset-bottom z-50">
       <div className="flex justify-around items-center h-16">
         {tabs.map((tab) => {
           const Icon = tab.icon
@@ -26,7 +26,7 @@ export function BottomTabNav() {
               onClick={() => router.push(tab.path)}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full transition-colors",
-                isActive ? "text-indigo-600" : "text-gray-400",
+                isActive ? "text-indigo-600" : "text-muted-foreground",
               )}
             >
               <Icon className={cn("w-6 h-6", isActive && "fill-indigo-100")} />

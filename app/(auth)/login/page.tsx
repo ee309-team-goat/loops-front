@@ -15,8 +15,6 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // TODO: Implement actual login logic with fetchClient
-    // await fetchClient('/auth/login', { method: 'POST', body: ... })
 
     setTimeout(() => {
       setIsLoading(false)
@@ -25,35 +23,35 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white p-6 flex flex-col">
-      <Link href="/" className="inline-flex items-center text-gray-500 mb-8">
+    <div className="min-h-screen bg-background p-6 flex flex-col">
+      <Link href="/" className="inline-flex items-center text-muted-foreground mb-8">
         <ArrowLeft className="w-4 h-4 mr-2" />
         돌아가기
       </Link>
 
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full space-y-8">
         <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold">다시 오셨군요! 👋</h1>
-          <p className="text-gray-500">오늘의 학습 목표를 달성해볼까요?</p>
+          <h1 className="text-2xl font-bold text-foreground">다시 오셨군요! 👋</h1>
+          <p className="text-muted-foreground">오늘의 학습 목표를 달성해볼까요?</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">이메일</label>
+            <label className="text-sm font-medium text-foreground">이메일</label>
             <input
               type="email"
               required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 outline-none transition-all"
               placeholder="hello@example.com"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">비밀번호</label>
+            <label className="text-sm font-medium text-foreground">비밀번호</label>
             <input
               type="password"
               required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 outline-none transition-all"
               placeholder="••••••••"
             />
           </div>
@@ -65,10 +63,10 @@ export default function LoginPage() {
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-gray-200" />
+            <span className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-gray-500">또는</span>
+            <span className="bg-background px-2 text-muted-foreground">또는</span>
           </div>
         </div>
 
