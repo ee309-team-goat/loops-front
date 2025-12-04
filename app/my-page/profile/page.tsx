@@ -1,11 +1,41 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Pencil, Clock, Flame, Calendar } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function ProfilePage() {
   const router = useRouter()
+  const [nickname, setNickname] = useState("me")
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState("")
+
+  useEffect(() => {
+    const savedNickname = localStorage.getItem("userNickname")
+    if (savedNickname) {
+      setNickname(savedNickname)
+    }
+  }, [])
+
+  const handleEdit = () => {
+    setEditValue(nickname)
+    setIsEditing(true)
+  }
+
+  const handleSave = () => {
+    if (editValue.trim()) {
+      setNickname(editValue.trim())
+      localStorage.setItem("userNickname", editValue.trim())
+    }
+    setIsEditing(false)
+  }
+
+  const handleCancel = () => {
+    setIsEditing(false)
+    setEditValue("")
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-100 via-purple-50 to-white">
@@ -53,12 +83,43 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Username */}
         <div className="flex items-center justify-center gap-3 mb-16">
-          <h2 className="text-3xl font-bold text-gray-800">me</h2>
-          <button className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors">
-            <Pencil className="w-5 h-5 text-gray-600" />
-          </button>
+          {isEditing ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                className="text-2xl font-bold text-center w-40"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSave()
+                  if (e.key === "Escape") handleCancel()
+                }}
+              />
+              <button
+                onClick={handleSave}
+                className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center hover:bg-green-200 transition-colors"
+              >
+                <Check className="w-5 h-5 text-green-600" />
+              </button>
+              <button
+                onClick={handleCancel}
+                className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors"
+              >
+                <X className="w-5 h-5 text-red-600" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-3xl font-bold text-gray-800">{nickname}</h2>
+              <button
+                onClick={handleEdit}
+                className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+              >
+                <Pencil className="w-5 h-5 text-gray-600" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Stats */}
