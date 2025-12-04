@@ -3,14 +3,17 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X } from "lucide-react"
+import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { generateMotto } from "@/app/actions/generate-motto"
 
 export default function ProfilePage() {
   const router = useRouter()
   const [nickname, setNickname] = useState("me")
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState("")
+  const [motto, setMotto] = useState("")
+  const [isLoadingMotto, setIsLoadingMotto] = useState(true)
 
   useEffect(() => {
     const savedNickname = localStorage.getItem("userNickname")
@@ -18,6 +21,39 @@ export default function ProfilePage() {
       setNickname(savedNickname)
     }
   }, [])
+
+  useEffect(() => {
+    const loadMotto = async () => {
+      const today = new Date().toDateString()
+      const cached = localStorage.getItem("dailyMotto")
+
+      if (cached) {
+        const { date, text } = JSON.parse(cached)
+        if (date === today) {
+          setMotto(text)
+          setIsLoadingMotto(false)
+          return
+        }
+      }
+
+      setIsLoadingMotto(true)
+      const newMotto = await generateMotto()
+      setMotto(newMotto)
+      localStorage.setItem("dailyMotto", JSON.stringify({ date: today, text: newMotto }))
+      setIsLoadingMotto(false)
+    }
+
+    loadMotto()
+  }, [])
+
+  const handleRefreshMotto = async () => {
+    setIsLoadingMotto(true)
+    const newMotto = await generateMotto()
+    setMotto(newMotto)
+    const today = new Date().toDateString()
+    localStorage.setItem("dailyMotto", JSON.stringify({ date: today, text: newMotto }))
+    setIsLoadingMotto(false)
+  }
 
   const handleEdit = () => {
     setEditValue(nickname)
@@ -49,10 +85,25 @@ export default function ProfilePage() {
 
       {/* Profile Content */}
       <div className="px-6 pt-12 pb-8">
-        {/* Speech Bubble */}
         <div className="relative mb-12">
-          <div className="bg-white rounded-3xl px-6 py-4 shadow-sm inline-block">
-            <p className="text-gray-800 text-base">영어 좌우명이 있나요?</p>
+          <div className="bg-white rounded-3xl px-6 py-4 shadow-sm inline-block max-w-[90%]">
+            {isLoadingMotto ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-gray-500 text-base">오늘의 좌우명을 불러오는 중...</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <p className="text-gray-800 text-base italic">&ldquo;{motto}&rdquo;</p>
+                <button
+                  onClick={handleRefreshMotto}
+                  className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center hover:bg-indigo-200 transition-colors"
+                  title="새 좌우명 생성"
+                >
+                  <RefreshCw className="w-4 h-4 text-indigo-600" />
+                </button>
+              </div>
+            )}
           </div>
           <div className="absolute left-8 -bottom-2 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[12px] border-t-white"></div>
         </div>
@@ -83,6 +134,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Nickname */}
         <div className="flex items-center justify-center gap-3 mb-16">
           {isEditing ? (
             <div className="flex items-center gap-2">
