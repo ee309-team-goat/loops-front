@@ -3,74 +3,65 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X, RefreshCw } from "lucide-react"
+import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { generateMotto } from "@/app/actions/generate-motto"
 
 export default function ProfilePage() {
   const router = useRouter()
   const [nickname, setNickname] = useState("me")
-  const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState("")
-  const [motto, setMotto] = useState("")
-  const [isLoadingMotto, setIsLoadingMotto] = useState(true)
+  const [isEditingNickname, setIsEditingNickname] = useState(false)
+  const [editNicknameValue, setEditNicknameValue] = useState("")
+
+  const [motto, setMotto] = useState("Every word you learn opens a new door.")
+  const [isEditingMotto, setIsEditingMotto] = useState(false)
+  const [editMottoValue, setEditMottoValue] = useState("")
 
   useEffect(() => {
     const savedNickname = localStorage.getItem("userNickname")
     if (savedNickname) {
       setNickname(savedNickname)
     }
+
+    const savedMotto = localStorage.getItem("userMotto")
+    if (savedMotto) {
+      setMotto(savedMotto)
+    }
   }, [])
 
-  useEffect(() => {
-    const loadMotto = async () => {
-      const today = new Date().toDateString()
-      const cached = localStorage.getItem("dailyMotto")
+  const handleEditNickname = () => {
+    setEditNicknameValue(nickname)
+    setIsEditingNickname(true)
+  }
 
-      if (cached) {
-        const { date, text } = JSON.parse(cached)
-        if (date === today) {
-          setMotto(text)
-          setIsLoadingMotto(false)
-          return
-        }
-      }
-
-      setIsLoadingMotto(true)
-      const newMotto = await generateMotto()
-      setMotto(newMotto)
-      localStorage.setItem("dailyMotto", JSON.stringify({ date: today, text: newMotto }))
-      setIsLoadingMotto(false)
+  const handleSaveNickname = () => {
+    if (editNicknameValue.trim()) {
+      setNickname(editNicknameValue.trim())
+      localStorage.setItem("userNickname", editNicknameValue.trim())
     }
-
-    loadMotto()
-  }, [])
-
-  const handleRefreshMotto = async () => {
-    setIsLoadingMotto(true)
-    const newMotto = await generateMotto()
-    setMotto(newMotto)
-    const today = new Date().toDateString()
-    localStorage.setItem("dailyMotto", JSON.stringify({ date: today, text: newMotto }))
-    setIsLoadingMotto(false)
+    setIsEditingNickname(false)
   }
 
-  const handleEdit = () => {
-    setEditValue(nickname)
-    setIsEditing(true)
+  const handleCancelNickname = () => {
+    setIsEditingNickname(false)
+    setEditNicknameValue("")
   }
 
-  const handleSave = () => {
-    if (editValue.trim()) {
-      setNickname(editValue.trim())
-      localStorage.setItem("userNickname", editValue.trim())
+  const handleEditMotto = () => {
+    setEditMottoValue(motto)
+    setIsEditingMotto(true)
+  }
+
+  const handleSaveMotto = () => {
+    if (editMottoValue.trim()) {
+      setMotto(editMottoValue.trim())
+      localStorage.setItem("userMotto", editMottoValue.trim())
     }
-    setIsEditing(false)
+    setIsEditingMotto(false)
   }
 
-  const handleCancel = () => {
-    setIsEditing(false)
-    setEditValue("")
+  const handleCancelMotto = () => {
+    setIsEditingMotto(false)
+    setEditMottoValue("")
   }
 
   return (
@@ -87,20 +78,41 @@ export default function ProfilePage() {
       <div className="px-6 pt-12 pb-8">
         <div className="relative mb-12">
           <div className="bg-white rounded-3xl px-6 py-4 shadow-sm inline-block max-w-[90%]">
-            {isLoadingMotto ? (
+            {isEditingMotto ? (
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                <p className="text-gray-500 text-base">오늘의 좌우명을 불러오는 중...</p>
+                <Input
+                  value={editMottoValue}
+                  onChange={(e) => setEditMottoValue(e.target.value)}
+                  className="text-base italic min-w-[200px]"
+                  placeholder="좋아하는 영어 좌우명을 입력하세요"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveMotto()
+                    if (e.key === "Escape") handleCancelMotto()
+                  }}
+                />
+                <button
+                  onClick={handleSaveMotto}
+                  className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center hover:bg-green-200 transition-colors"
+                >
+                  <Check className="w-4 h-4 text-green-600" />
+                </button>
+                <button
+                  onClick={handleCancelMotto}
+                  className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors"
+                >
+                  <X className="w-4 h-4 text-red-600" />
+                </button>
               </div>
             ) : (
               <div className="flex items-center gap-3">
                 <p className="text-gray-800 text-base italic">&ldquo;{motto}&rdquo;</p>
                 <button
-                  onClick={handleRefreshMotto}
+                  onClick={handleEditMotto}
                   className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center hover:bg-indigo-200 transition-colors"
-                  title="새 좌우명 생성"
+                  title="좌우명 편집"
                 >
-                  <RefreshCw className="w-4 h-4 text-indigo-600" />
+                  <Pencil className="w-4 h-4 text-indigo-600" />
                 </button>
               </div>
             )}
@@ -134,28 +146,28 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Nickname */}
+        {/* Nickname - 함수 이름 변경 반영 */}
         <div className="flex items-center justify-center gap-3 mb-16">
-          {isEditing ? (
+          {isEditingNickname ? (
             <div className="flex items-center gap-2">
               <Input
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
+                value={editNicknameValue}
+                onChange={(e) => setEditNicknameValue(e.target.value)}
                 className="text-2xl font-bold text-center w-40"
                 autoFocus
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSave()
-                  if (e.key === "Escape") handleCancel()
+                  if (e.key === "Enter") handleSaveNickname()
+                  if (e.key === "Escape") handleCancelNickname()
                 }}
               />
               <button
-                onClick={handleSave}
+                onClick={handleSaveNickname}
                 className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center hover:bg-green-200 transition-colors"
               >
                 <Check className="w-5 h-5 text-green-600" />
               </button>
               <button
-                onClick={handleCancel}
+                onClick={handleCancelNickname}
                 className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors"
               >
                 <X className="w-5 h-5 text-red-600" />
@@ -165,7 +177,7 @@ export default function ProfilePage() {
             <>
               <h2 className="text-3xl font-bold text-gray-800">{nickname}</h2>
               <button
-                onClick={handleEdit}
+                onClick={handleEditNickname}
                 className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
               >
                 <Pencil className="w-5 h-5 text-gray-600" />
