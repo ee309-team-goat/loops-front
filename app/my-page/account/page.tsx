@@ -2,8 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, MessageCircle, Copy, Check, Plus } from "lucide-react"
+import { ChevronLeft, ChevronRight, MessageCircle, Copy, Check, Plus, Mail, User } from "lucide-react"
 import { useRouter } from "next/navigation"
+
+type AuthInfo = {
+  type: "guest" | "email" | "google" | "kakao"
+  email: string
+  loginMethod: string
+}
 
 export default function AccountPage() {
   const router = useRouter()
@@ -12,18 +18,29 @@ export default function AccountPage() {
   const [learningPurpose, setLearningPurpose] = useState("유학/대학원 진학")
   const [showPurposeSelect, setShowPurposeSelect] = useState(false)
 
-  // 임시 계정 코드 (실제로는 서버에서 생성)
-  const accountCode = "LOOPS-" + Math.random().toString(36).substring(2, 10).toUpperCase()
+  const [authInfo, setAuthInfo] = useState<AuthInfo | null>(null)
 
-  // 연결된 계정 정보 (실제로는 서버에서 가져옴)
-  const [connectedAccount, setConnectedAccount] = useState({
-    type: "kakao",
-    email: "user@example.com",
-  })
+  // 임시 계정 코드 (실제로는 서버에서 생성)
+  const [accountCode, setAccountCode] = useState("")
 
   useEffect(() => {
-    const saved = localStorage.getItem("learningPurpose")
-    if (saved) setLearningPurpose(saved)
+    const savedAuth = localStorage.getItem("authInfo")
+    if (savedAuth) {
+      setAuthInfo(JSON.parse(savedAuth))
+    }
+
+    const savedPurpose = localStorage.getItem("learningPurpose")
+    if (savedPurpose) setLearningPurpose(savedPurpose)
+
+    // 계정 코드 생성 (세션마다 동일하게 유지)
+    const savedCode = localStorage.getItem("accountCode")
+    if (savedCode) {
+      setAccountCode(savedCode)
+    } else {
+      const newCode = "LOOPS-" + Math.random().toString(36).substring(2, 10).toUpperCase()
+      localStorage.setItem("accountCode", newCode)
+      setAccountCode(newCode)
+    }
   }, [])
 
   const handleCopyCode = () => {
@@ -33,13 +50,11 @@ export default function AccountPage() {
   }
 
   const handleLogout = () => {
-    // 실제로는 서버에 로그아웃 요청
-    localStorage.clear()
+    localStorage.removeItem("authInfo")
     router.push("/")
   }
 
   const handleDeleteAccount = () => {
-    // 실제로는 서버에 탈퇴 요청
     localStorage.clear()
     router.push("/")
   }
@@ -51,6 +66,64 @@ export default function AccountPage() {
   }
 
   const purposes = ["유학/대학원 진학", "취업/이직", "자기계발", "시험 준비 (토익, 토플 등)", "여행/해외생활", "기타"]
+
+  const getAccountDisplay = () => {
+    if (!authInfo) return null
+
+    switch (authInfo.type) {
+      case "guest":
+        return {
+          icon: <User className="w-6 h-6 text-gray-600" />,
+          label: "게스트 계정",
+          bgColor: "bg-gray-200",
+          textColor: "text-gray-900",
+        }
+      case "email":
+        return {
+          icon: <Mail className="w-6 h-6 text-blue-600" />,
+          label: "이메일 계정",
+          bgColor: "bg-blue-100",
+          textColor: "text-blue-900",
+        }
+      case "google":
+        return {
+          icon: (
+            <svg className="w-6 h-6" viewBox="0 0 24 24">
+              <path
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                fill="#4285F4"
+              />
+              <path
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                fill="#34A853"
+              />
+              <path
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                fill="#FBBC05"
+              />
+              <path
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                fill="#EA4335"
+              />
+            </svg>
+          ),
+          label: "Google 계정",
+          bgColor: "bg-white border border-gray-200",
+          textColor: "text-gray-900",
+        }
+      case "kakao":
+        return {
+          icon: <MessageCircle className="w-6 h-6 text-gray-900" />,
+          label: "카카오 계정",
+          bgColor: "bg-yellow-400",
+          textColor: "text-gray-900",
+        }
+      default:
+        return null
+    }
+  }
+
+  const accountDisplay = getAccountDisplay()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -105,35 +178,52 @@ export default function AccountPage() {
             </Button>
           </div>
 
-          {/* 연결된 계정 */}
           <div className="p-4 space-y-3">
             <span className="text-sm text-gray-500">연결된 계정</span>
 
-            {connectedAccount && (
-              <div className="bg-yellow-400 rounded-xl overflow-hidden">
+            {authInfo && accountDisplay && (
+              <div className={`${accountDisplay.bgColor} rounded-xl overflow-hidden`}>
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <MessageCircle className="w-6 h-6 text-gray-900" />
-                    <span className="font-medium text-gray-900">카카오 계정</span>
+                    {accountDisplay.icon}
+                    <span className={`font-medium ${accountDisplay.textColor}`}>{accountDisplay.label}</span>
                   </div>
-                  <button className="flex items-center gap-1 text-gray-700 text-sm">
-                    연결해제
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                  {authInfo.type !== "guest" && (
+                    <button className="flex items-center gap-1 text-gray-700 text-sm">
+                      연결해제
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 <div className="px-4 pb-4">
-                  <span className="text-sm text-gray-700">이메일: {connectedAccount.email}</span>
+                  <span className={`text-sm ${authInfo.type === "guest" ? "text-gray-600" : "text-gray-700"}`}>
+                    이메일: {authInfo.email}
+                  </span>
                 </div>
               </div>
             )}
 
-            <button className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-500 hover:bg-gray-50 transition-colors">
-              <Plus className="w-5 h-5" />
-              추가 계정 연결하기
-              <span className="w-5 h-5 rounded-full bg-gray-300 text-white text-xs flex items-center justify-center">
-                ?
-              </span>
-            </button>
+            {/* 게스트가 아닐 때만 추가 계정 연결 버튼 표시 */}
+            {authInfo?.type !== "guest" && (
+              <button className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-500 hover:bg-gray-50 transition-colors">
+                <Plus className="w-5 h-5" />
+                추가 계정 연결하기
+                <span className="w-5 h-5 rounded-full bg-gray-300 text-white text-xs flex items-center justify-center">
+                  ?
+                </span>
+              </button>
+            )}
+
+            {authInfo?.type === "guest" && (
+              <div className="bg-violet-50 rounded-xl p-4 text-center">
+                <p className="text-sm text-violet-700 mb-3">
+                  게스트 상태입니다. 학습 데이터를 저장하려면 계정을 연결하세요.
+                </p>
+                <Button size="sm" onClick={() => router.push("/signup")} className="bg-violet-600 hover:bg-violet-700">
+                  계정 연결하기
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 

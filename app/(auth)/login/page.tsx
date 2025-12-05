@@ -11,15 +11,37 @@ import { ArrowLeft, Loader2 } from "lucide-react"
 export default function LoginPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
+    localStorage.setItem(
+      "authInfo",
+      JSON.stringify({
+        type: "email",
+        email: email,
+        loginMethod: "email",
+      }),
+    )
+
     setTimeout(() => {
       setIsLoading(false)
       router.push("/dashboard")
     }, 1000)
+  }
+
+  const handleGoogleLogin = () => {
+    localStorage.setItem(
+      "authInfo",
+      JSON.stringify({
+        type: "google",
+        email: "user@gmail.com", // 실제로는 Google OAuth에서 가져옴
+        loginMethod: "google",
+      }),
+    )
+    router.push("/dashboard")
   }
 
   return (
@@ -41,6 +63,8 @@ export default function LoginPage() {
             <input
               type="email"
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 outline-none transition-all"
               placeholder="hello@example.com"
             />
@@ -70,7 +94,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <Button variant="outline" className="w-full py-6 bg-transparent" type="button">
+        <Button variant="outline" className="w-full py-6 bg-transparent" type="button" onClick={handleGoogleLogin}>
           <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
