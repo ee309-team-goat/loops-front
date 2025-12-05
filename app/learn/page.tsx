@@ -2,12 +2,18 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MOCK_CARDS, FSRS_RATING } from "@/lib/api/client"
 import { Volume2, X, Mic, Lightbulb, Repeat } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+type AudioSettings = {
+  autoPlayAudio: boolean
+  playbackSpeed: number
+  soundEffects: boolean
+}
 
 export default function LearnPage() {
   const router = useRouter()
@@ -16,11 +22,17 @@ export default function LearnPage() {
   const [cards, setCards] = useState(MOCK_CARDS)
   const [completedCount, setCompletedCount] = useState(0)
   const [showTutorial, setShowTutorial] = useState(true)
-  const [playbackSpeed, setPlaybackSpeed] = useState<0.75 | 1 | 1.25>(1)
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1)
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0)
   const [isGeneratingExample, setIsGeneratingExample] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [showPronunciationAnalysis, setShowPronunciationAnalysis] = useState(false)
+
+  const [audioSettings, setAudioSettings] = useState<AudioSettings>({
+    autoPlayAudio: false,
+    playbackSpeed: 1,
+    soundEffects: true,
+  })
 
   const currentCard = cards[currentIndex]
   const progress = (currentIndex / cards.length) * 100
@@ -39,6 +51,38 @@ export default function LearnPage() {
       translation: "경쟁력을 유지하려면 지속적인 혁신이 필요하다.",
     },
   ]
+
+  useEffect(() => {
+    const saved = localStorage.getItem("audioSettings")
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setAudioSettings(parsed)
+        setPlaybackSpeed(parsed.playbackSpeed || 1)
+      } catch (e) {
+        console.error("Failed to parse audio settings")
+      }
+    }
+  }, [])
+
+  const playAudioForWord = useCallback(
+    (word: string, speed?: number) => {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel()
+        const utterance = new SpeechSynthesisUtterance(word)
+        utterance.lang = "en-US"
+        utterance.rate = speed ?? playbackSpeed
+        window.speechSynthesis.speak(utterance)
+      }
+    },
+    [playbackSpeed],
+  )
+
+  useEffect(() => {
+    if (isFlipped && audioSettings.autoPlayAudio && currentCard) {
+      playAudioForWord(currentCard.word)
+    }
+  }, [isFlipped, audioSettings.autoPlayAudio, currentCard, playAudioForWord])
 
   const handleFlip = () => {
     setIsFlipped(!isFlipped)
@@ -62,14 +106,7 @@ export default function LearnPage() {
 
   const playAudio = (e: React.MouseEvent) => {
     e.stopPropagation()
-    console.log(`[v0] Playing audio for: ${currentCard.word} at ${playbackSpeed}x speed`)
-
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(currentCard.word)
-      utterance.lang = "en-US"
-      utterance.rate = playbackSpeed
-      window.speechSynthesis.speak(utterance)
-    }
+    playAudioForWord(currentCard.word)
   }
 
   const regenerateExample = (e: React.MouseEvent) => {
@@ -78,7 +115,6 @@ export default function LearnPage() {
     setTimeout(() => {
       setCurrentExampleIndex((prev) => (prev + 1) % mockExamples.length)
       setIsGeneratingExample(false)
-      console.log("[v0] Generated new example")
     }, 800)
   }
 
@@ -87,11 +123,9 @@ export default function LearnPage() {
     setIsRecording(!isRecording)
 
     if (!isRecording) {
-      console.log("[v0] Started recording pronunciation")
       setTimeout(() => {
         setIsRecording(false)
         setShowPronunciationAnalysis(true)
-        console.log("[v0] Pronunciation analysis complete")
       }, 2000)
     }
   }

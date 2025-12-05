@@ -1,22 +1,42 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+type AudioSettings = {
+  autoPlayAudio: boolean
+  playbackSpeed: number
+  soundEffects: boolean
+}
+
+const DEFAULT_SETTINGS: AudioSettings = {
+  autoPlayAudio: false,
+  playbackSpeed: 1,
+  soundEffects: true,
+}
+
 export default function AudioSettingsPage() {
   const router = useRouter()
-  const [settings, setSettings] = useState({
-    autoPlayAudio: false,
-    playbackSpeed: 1,
-    soundEffects: true,
-  })
+  const [settings, setSettings] = useState<AudioSettings>(DEFAULT_SETTINGS)
 
-  const updateSetting = (key: string, value: any) => {
-    setSettings((prev) => ({ ...prev, [key]: value }))
-    console.log(`[v0] Updated ${key}:`, value)
+  useEffect(() => {
+    const saved = localStorage.getItem("audioSettings")
+    if (saved) {
+      try {
+        setSettings(JSON.parse(saved))
+      } catch (e) {
+        console.error("Failed to parse audio settings")
+      }
+    }
+  }, [])
+
+  const updateSetting = (key: keyof AudioSettings, value: boolean | number) => {
+    const newSettings = { ...settings, [key]: value }
+    setSettings(newSettings)
+    localStorage.setItem("audioSettings", JSON.stringify(newSettings))
   }
 
   return (
