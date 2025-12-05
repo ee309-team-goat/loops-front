@@ -78,6 +78,44 @@ export default function LearnPage() {
     [playbackSpeed],
   )
 
+  const playSoundEffect = useCallback(
+    (type: "correct" | "incorrect" | "flip") => {
+      if (!audioSettings.soundEffects) return
+
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const oscillator = audioContext.createOscillator()
+      const gainNode = audioContext.createGain()
+
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+
+      if (type === "correct") {
+        // 정답 효과음: 상승하는 두 음
+        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime) // C5
+        oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1) // E5
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
+        oscillator.start(audioContext.currentTime)
+        oscillator.stop(audioContext.currentTime + 0.3)
+      } else if (type === "incorrect") {
+        // 오답 효과음: 낮은 단일 음
+        oscillator.frequency.setValueAtTime(200, audioContext.currentTime)
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2)
+        oscillator.start(audioContext.currentTime)
+        oscillator.stop(audioContext.currentTime + 0.2)
+      } else if (type === "flip") {
+        // 카드 뒤집기 효과음: 짧은 클릭음
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05)
+        oscillator.start(audioContext.currentTime)
+        oscillator.stop(audioContext.currentTime + 0.05)
+      }
+    },
+    [audioSettings.soundEffects],
+  )
+
   useEffect(() => {
     if (isFlipped && audioSettings.autoPlayAudio && currentCard) {
       playAudioForWord(currentCard.word)
@@ -86,11 +124,16 @@ export default function LearnPage() {
 
   const handleFlip = () => {
     setIsFlipped(!isFlipped)
+    playSoundEffect("flip")
     if (showTutorial) setShowTutorial(false)
   }
 
   const handleRate = (rating: number) => {
-    console.log(`[v0] Rated card ${currentCard.id} as ${rating}`)
+    if (rating === FSRS_RATING.GOOD || rating === FSRS_RATING.EASY) {
+      playSoundEffect("correct")
+    } else {
+      playSoundEffect("incorrect")
+    }
 
     if (currentIndex < cards.length - 1) {
       setIsFlipped(false)
