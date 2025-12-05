@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, Info, User } from "lucide-react"
+import { ChevronRight, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, Info, User, UserCog } from "lucide-react"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { useRouter } from "next/navigation"
 
@@ -27,6 +27,12 @@ export default function MyPage() {
           label: "어휘학습",
           description: "퀴즈 방식, 단어장 변경, 난이도 및 복습 단어 비율 조정",
           path: "/my-page/vocabulary",
+        },
+        {
+          icon: UserCog,
+          label: "계정 관리",
+          description: "연결된 계정, 로그아웃, 학습 목적, 탈퇴",
+          path: "/my-page/account",
         },
         {
           icon: HelpCircle,
