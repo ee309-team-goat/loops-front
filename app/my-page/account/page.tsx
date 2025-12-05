@@ -1,14 +1,115 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, MessageCircle, Copy, Check, Plus, Mail, User } from "lucide-react"
 import { useRouter } from "next/navigation"
 
+type AuthProvider = "guest" | "email" | "google" | "kakao" | "naver" | "apple" | "facebook" | "other"
+
 type AuthInfo = {
-  type: "guest" | "email" | "google" | "kakao"
+  type: AuthProvider
   email: string
   loginMethod: string
+}
+
+const PROVIDER_STYLES: Record<
+  string,
+  {
+    icon: React.ReactNode
+    label: string
+    bgColor: string
+    textColor: string
+    borderColor?: string
+  }
+> = {
+  guest: {
+    icon: <User className="w-6 h-6 text-gray-600" />,
+    label: "게스트 계정",
+    bgColor: "bg-gray-200",
+    textColor: "text-gray-900",
+  },
+  email: {
+    icon: <Mail className="w-6 h-6 text-blue-600" />,
+    label: "이메일 계정",
+    bgColor: "bg-blue-100",
+    textColor: "text-blue-900",
+  },
+  google: {
+    icon: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24">
+        <path
+          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+          fill="#4285F4"
+        />
+        <path
+          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+          fill="#34A853"
+        />
+        <path
+          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+          fill="#FBBC05"
+        />
+        <path
+          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+          fill="#EA4335"
+        />
+      </svg>
+    ),
+    label: "Google 계정",
+    bgColor: "bg-white",
+    textColor: "text-gray-900",
+    borderColor: "border border-gray-200",
+  },
+  kakao: {
+    icon: <MessageCircle className="w-6 h-6 text-gray-900" />,
+    label: "카카오 계정",
+    bgColor: "bg-[#FEE500]",
+    textColor: "text-gray-900",
+  },
+  naver: {
+    icon: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24">
+        <path fill="#fff" d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727z" />
+      </svg>
+    ),
+    label: "네이버 계정",
+    bgColor: "bg-[#03C75A]",
+    textColor: "text-white",
+  },
+  apple: {
+    icon: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+      </svg>
+    ),
+    label: "Apple 계정",
+    bgColor: "bg-black",
+    textColor: "text-white",
+  },
+  facebook: {
+    icon: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#fff">
+        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+      </svg>
+    ),
+    label: "Facebook 계정",
+    bgColor: "bg-[#1877F2]",
+    textColor: "text-white",
+  },
+}
+
+const DEFAULT_PROVIDER_STYLE = {
+  icon: <Mail className="w-6 h-6 text-gray-500" />,
+  label: "기타 계정",
+  bgColor: "bg-gray-100",
+  textColor: "text-gray-700",
+}
+
+function getProviderStyle(type: AuthProvider) {
+  return PROVIDER_STYLES[type] || DEFAULT_PROVIDER_STYLE
 }
 
 export default function AccountPage() {
@@ -17,13 +118,12 @@ export default function AccountPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [learningPurpose, setLearningPurpose] = useState("유학/대학원 진학")
   const [showPurposeSelect, setShowPurposeSelect] = useState(false)
-
   const [authInfo, setAuthInfo] = useState<AuthInfo | null>(null)
-
-  // 임시 계정 코드 (실제로는 서버에서 생성)
   const [accountCode, setAccountCode] = useState("")
 
   useEffect(() => {
+    // 예: const response = await fetch('/api/auth/me')
+    // setAuthInfo(response.data)
     const savedAuth = localStorage.getItem("authInfo")
     if (savedAuth) {
       setAuthInfo(JSON.parse(savedAuth))
@@ -32,7 +132,6 @@ export default function AccountPage() {
     const savedPurpose = localStorage.getItem("learningPurpose")
     if (savedPurpose) setLearningPurpose(savedPurpose)
 
-    // 계정 코드 생성 (세션마다 동일하게 유지)
     const savedCode = localStorage.getItem("accountCode")
     if (savedCode) {
       setAccountCode(savedCode)
@@ -67,63 +166,7 @@ export default function AccountPage() {
 
   const purposes = ["유학/대학원 진학", "취업/이직", "자기계발", "시험 준비 (토익, 토플 등)", "여행/해외생활", "기타"]
 
-  const getAccountDisplay = () => {
-    if (!authInfo) return null
-
-    switch (authInfo.type) {
-      case "guest":
-        return {
-          icon: <User className="w-6 h-6 text-gray-600" />,
-          label: "게스트 계정",
-          bgColor: "bg-gray-200",
-          textColor: "text-gray-900",
-        }
-      case "email":
-        return {
-          icon: <Mail className="w-6 h-6 text-blue-600" />,
-          label: "이메일 계정",
-          bgColor: "bg-blue-100",
-          textColor: "text-blue-900",
-        }
-      case "google":
-        return {
-          icon: (
-            <svg className="w-6 h-6" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
-            </svg>
-          ),
-          label: "Google 계정",
-          bgColor: "bg-white border border-gray-200",
-          textColor: "text-gray-900",
-        }
-      case "kakao":
-        return {
-          icon: <MessageCircle className="w-6 h-6 text-gray-900" />,
-          label: "카카오 계정",
-          bgColor: "bg-yellow-400",
-          textColor: "text-gray-900",
-        }
-      default:
-        return null
-    }
-  }
-
-  const accountDisplay = getAccountDisplay()
+  const providerStyle = authInfo ? getProviderStyle(authInfo.type) : null
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -181,29 +224,26 @@ export default function AccountPage() {
           <div className="p-4 space-y-3">
             <span className="text-sm text-gray-500">연결된 계정</span>
 
-            {authInfo && accountDisplay && (
-              <div className={`${accountDisplay.bgColor} rounded-xl overflow-hidden`}>
+            {authInfo && providerStyle && (
+              <div className={`${providerStyle.bgColor} ${providerStyle.borderColor || ""} rounded-xl overflow-hidden`}>
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {accountDisplay.icon}
-                    <span className={`font-medium ${accountDisplay.textColor}`}>{accountDisplay.label}</span>
+                    {providerStyle.icon}
+                    <span className={`font-medium ${providerStyle.textColor}`}>{providerStyle.label}</span>
                   </div>
                   {authInfo.type !== "guest" && (
-                    <button className="flex items-center gap-1 text-gray-700 text-sm">
+                    <button className={`flex items-center gap-1 text-sm ${providerStyle.textColor} opacity-80`}>
                       연결해제
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   )}
                 </div>
                 <div className="px-4 pb-4">
-                  <span className={`text-sm ${authInfo.type === "guest" ? "text-gray-600" : "text-gray-700"}`}>
-                    이메일: {authInfo.email}
-                  </span>
+                  <span className={`text-sm ${providerStyle.textColor} opacity-80`}>이메일: {authInfo.email}</span>
                 </div>
               </div>
             )}
 
-            {/* 게스트가 아닐 때만 추가 계정 연결 버튼 표시 */}
             {authInfo?.type !== "guest" && (
               <button className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-500 hover:bg-gray-50 transition-colors">
                 <Plus className="w-5 h-5" />
@@ -233,7 +273,6 @@ export default function AccountPage() {
             <h2 className="font-bold text-gray-900">계정 관리</h2>
           </div>
 
-          {/* 학습 목적 */}
           <button
             onClick={() => setShowPurposeSelect(true)}
             className="w-full p-4 flex items-center justify-between border-b border-gray-100 hover:bg-gray-50 transition-colors"
@@ -245,7 +284,6 @@ export default function AccountPage() {
             </div>
           </button>
 
-          {/* 탈퇴하기 */}
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="w-full p-4 text-left text-gray-700 hover:bg-gray-50 transition-colors"
