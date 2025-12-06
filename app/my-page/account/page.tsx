@@ -116,21 +116,23 @@ export default function AccountPage() {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [learningPurpose, setLearningPurpose] = useState("유학/대학원 진학")
+  const [learningPurpose, setLearningPurpose] = useState("")
   const [showPurposeSelect, setShowPurposeSelect] = useState(false)
   const [authInfo, setAuthInfo] = useState<AuthInfo | null>(null)
   const [accountCode, setAccountCode] = useState("")
 
   useEffect(() => {
-    // 예: const response = await fetch('/api/auth/me')
-    // setAuthInfo(response.data)
     const savedAuth = localStorage.getItem("authInfo")
     if (savedAuth) {
       setAuthInfo(JSON.parse(savedAuth))
     }
 
     const savedPurpose = localStorage.getItem("learningPurpose")
-    if (savedPurpose) setLearningPurpose(savedPurpose)
+    if (savedPurpose) {
+      setLearningPurpose(savedPurpose)
+    } else {
+      setLearningPurpose("미설정")
+    }
 
     const savedCode = localStorage.getItem("accountCode")
     if (savedCode) {
@@ -164,7 +166,7 @@ export default function AccountPage() {
     setShowPurposeSelect(false)
   }
 
-  const purposes = ["유학/대학원 진학", "취업/이직", "자기계발", "시험 준비 (토익, 토플 등)", "여행/해외생활", "기타"]
+  const purposes = ["취업/시험 준비", "업무/실무 활용", "여행/취미", "기타"]
 
   const providerStyle = authInfo ? getProviderStyle(authInfo.type) : null
 

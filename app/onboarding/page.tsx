@@ -22,6 +22,14 @@ export default function OnboardingPage() {
       setStep((prev) => (prev + 1) as Step)
     } else {
       console.log("[v0] Profile data:", answers)
+      const goalMap: Record<string, string> = {
+        job: "취업/시험 준비",
+        work: "업무/실무 활용",
+        travel: "여행/취미",
+      }
+      if (answers.goal) {
+        localStorage.setItem("learningPurpose", goalMap[answers.goal] || answers.goal)
+      }
       router.push("/onboarding/deck-selection")
     }
   }
