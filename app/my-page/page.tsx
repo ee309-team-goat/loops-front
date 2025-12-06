@@ -2,8 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, Info, User, UserCog } from "lucide-react"
-import { BottomTabNav } from "@/components/bottom-tab-nav"
+import { ChevronRight, Bell, Volume2, Star, BookOpen, HelpCircle, Info, User, UserCog } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function MyPage() {
@@ -40,7 +39,6 @@ export default function MyPage() {
           description: "고객센터, 수강증/출석확인 발급, 공지사항",
           path: "/my-page/support",
         },
-        { icon: Globe, label: "언어", description: "기본 언어 설정", path: "/my-page/language" },
         { icon: Info, label: "업데이트 히스토리", description: "로이드가 실험 중인 기능들", path: "/my-page/updates" },
       ],
     },
@@ -150,7 +148,8 @@ export default function MyPage() {
         ))}
       </div>
 
-      <BottomTabNav />
+      {/* Bottom Tab Navigation */}
+      {/* BottomTabNav component is removed as per the update */}
     </div>
   )
 }
