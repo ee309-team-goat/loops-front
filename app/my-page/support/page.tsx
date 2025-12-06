@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 const supportItems = [
-  { label: "말해보카 고객센터", path: "/my-page/support/customer-center" },
+  { label: "Loops 고객센터", path: "/my-page/support/faq" },
   { label: "수강증 발급", path: "/my-page/support/course-certificate" },
   { label: "출석증 발급", path: "/my-page/support/attendance-certificate" },
   { label: "공지사항", path: "/my-page/support/announcements" },
