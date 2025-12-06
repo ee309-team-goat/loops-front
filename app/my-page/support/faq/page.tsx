@@ -4,8 +4,8 @@ import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronLeft, Search, HelpCircle, ChevronDown, ChevronUp } from "lucide-react"
-import { FAQ_DATA, FAQ_CATEGORIES, SUGGESTED_QUESTIONS, type FAQItem } from "@/lib/data/faq-data"
+import { ChevronLeft, Search, ChevronDown, ChevronUp } from "lucide-react"
+import { FAQ_DATA, FAQ_CATEGORIES, type FAQItem } from "@/lib/data/faq-data"
 
 export default function FAQPage() {
   const router = useRouter()
@@ -29,10 +29,6 @@ export default function FAQPage() {
 
   const handleQuestionClick = (id: string) => {
     setExpandedId(expandedId === id ? null : id)
-  }
-
-  const handleSuggestedClick = (question: string) => {
-    setSearchQuery(question)
   }
 
   return (
@@ -84,35 +80,6 @@ export default function FAQPage() {
         ))}
       </div>
 
-      {/* Suggested Questions - 검색어가 없을 때만 표시 */}
-      {searchQuery === "" && selectedCategory === "all" && (
-        <div className="px-4 py-4">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center">
-              <HelpCircle className="w-4 h-4 text-violet-600" />
-            </div>
-            <span className="font-medium text-gray-900">이렇게 질문해 보세요!</span>
-          </div>
-
-          <div className="space-y-3">
-            {SUGGESTED_QUESTIONS.map((faq) => (
-              <button
-                key={faq.id}
-                onClick={() => handleSuggestedClick(faq.question)}
-                className="w-full bg-gray-50 rounded-xl p-4 text-left hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <HelpCircle className="w-3.5 h-3.5 text-gray-500" />
-                  </div>
-                  <p className="text-gray-700 text-sm leading-relaxed">{faq.question}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* FAQ List */}
       <div className="px-4 py-4">
         {searchQuery !== "" || selectedCategory !== "all" ? (
@@ -135,7 +102,7 @@ export default function FAQPage() {
 
       {/* All FAQs - 검색어가 없고 카테고리도 전체일 때 */}
       {searchQuery === "" && selectedCategory === "all" && (
-        <div className="px-4 py-4 border-t border-gray-100">
+        <div className="px-4 py-4">
           <h3 className="font-medium text-gray-900 mb-4">자주 묻는 질문</h3>
           <div className="space-y-2">
             {FAQ_DATA.map((faq) => (
