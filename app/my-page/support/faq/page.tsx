@@ -1,12 +1,11 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronLeft, Search, ChevronDown, ChevronUp, Plus, Clock, CheckCircle } from "lucide-react"
+import { ChevronLeft, Plus, Clock, CheckCircle, ChevronUp, ChevronDown } from "lucide-react"
 import { FAQ_DATA, FAQ_CATEGORIES, type FAQItem } from "@/lib/data/faq-data"
 
 interface SavedQuestion {
@@ -115,23 +114,18 @@ export default function FAQPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full pl-4 pr-24 py-3 rounded-full bg-white border-0 shadow-sm"
+            className="w-full pl-4 pr-12 py-3 rounded-full bg-white border-0 shadow-sm"
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {searchQuery.trim() !== "" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSaveQuestion}
-                className="text-violet-600 hover:text-violet-700"
-              >
-                <Plus className="w-5 h-5" />
-              </Button>
-            )}
-            <Button variant="ghost" size="icon">
-              <Search className="w-5 h-5 text-gray-500" />
+          {searchQuery.trim() !== "" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSaveQuestion}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-violet-600 hover:text-violet-700"
+            >
+              <Plus className="w-5 h-5" />
             </Button>
-          </div>
+          )}
         </div>
         {showSaveConfirm && (
           <p className="text-sm text-green-600 mt-2 text-center">
