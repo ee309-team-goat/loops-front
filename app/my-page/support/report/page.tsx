@@ -103,7 +103,11 @@ export default function ReportPage() {
       {/* Hero Section */}
       <div className="bg-gradient-to-b from-gray-50 to-white px-4 py-8 text-center">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">문제 보고</h2>
-        <p className="text-gray-600">버그나 개선사항을 알려주세요!</p>
+        <p className="text-gray-600 mb-4">버그나 개선사항을 알려주세요!</p>
+        <Button onClick={() => setShowForm(true)} className="bg-violet-600 hover:bg-violet-700 text-white">
+          <Plus className="w-4 h-4 mr-2" />
+          문제 보고하기
+        </Button>
       </div>
 
       {/* Confirm Toast */}
@@ -216,10 +220,6 @@ export default function ReportPage() {
           <div className="text-center py-12">
             <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">등록된 문제 보고가 없습니다</p>
-            <Button variant="outline" className="mt-4 bg-transparent" onClick={() => setShowForm(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              문제 보고하기
-            </Button>
           </div>
         ) : (
           <div className="space-y-3">
