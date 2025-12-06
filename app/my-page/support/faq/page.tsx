@@ -1,10 +1,12 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronLeft, Search, ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronLeft, Search, ChevronDown, ChevronUp, Plus } from "lucide-react"
 import { FAQ_DATA, FAQ_CATEGORIES, type FAQItem } from "@/lib/data/faq-data"
 
 export default function FAQPage() {
@@ -12,23 +14,43 @@ export default function FAQPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [savedQuestions, setSavedQuestions] = useState<{ category: string; question: string }[]>([])
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
 
-  // 검색 및 카테고리 필터링
   const filteredFAQs = useMemo(() => {
     return FAQ_DATA.filter((faq) => {
-      const matchesSearch =
-        searchQuery === "" ||
-        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-
       const matchesCategory = selectedCategory === "all" || faq.category === selectedCategory
-
-      return matchesSearch && matchesCategory
+      return matchesCategory
     })
-  }, [searchQuery, selectedCategory])
+  }, [selectedCategory])
 
   const handleQuestionClick = (id: string) => {
     setExpandedId(expandedId === id ? null : id)
+  }
+
+  const handleSaveQuestion = () => {
+    if (searchQuery.trim() === "") return
+
+    const newQuestion = {
+      category: selectedCategory,
+      question: searchQuery.trim(),
+    }
+
+    setSavedQuestions([...savedQuestions, newQuestion])
+    setShowSaveConfirm(true)
+    setSearchQuery("")
+
+    // 3초 후 확인 메시지 숨김
+    setTimeout(() => setShowSaveConfirm(false), 3000)
+
+    // TODO: 백엔드 연동 시 여기서 API 호출
+    console.log("저장된 질문:", newQuestion)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && searchQuery.trim() !== "") {
+      handleSaveQuestion()
+    }
   }
 
   return (
@@ -55,12 +77,31 @@ export default function FAQPage() {
             placeholder="무엇이든 물어보세요"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-4 pr-12 py-3 rounded-full bg-white border-0 shadow-sm"
+            onKeyDown={handleKeyDown}
+            className="w-full pl-4 pr-24 py-3 rounded-full bg-white border-0 shadow-sm"
           />
-          <Button variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2">
-            <Search className="w-5 h-5 text-gray-500" />
-          </Button>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {searchQuery.trim() !== "" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSaveQuestion}
+                className="text-violet-600 hover:text-violet-700"
+              >
+                <Plus className="w-5 h-5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon">
+              <Search className="w-5 h-5 text-gray-500" />
+            </Button>
+          </div>
         </div>
+        {showSaveConfirm && (
+          <p className="text-sm text-green-600 mt-2 text-center">
+            질문이 저장되었습니다! (
+            {selectedCategory === "all" ? "전체" : FAQ_CATEGORIES.find((c) => c.id === selectedCategory)?.label})
+          </p>
+        )}
       </div>
 
       {/* Category Filter */}
@@ -80,38 +121,38 @@ export default function FAQPage() {
         ))}
       </div>
 
-      {/* FAQ List */}
+      {/* FAQ List - 카테고리 선택 시에만 필터링 */}
       <div className="px-4 py-4">
-        {searchQuery !== "" || selectedCategory !== "all" ? (
-          <>
-            <p className="text-sm text-gray-500 mb-4">{filteredFAQs.length}개의 결과</p>
-            <div className="space-y-2">
-              {filteredFAQs.map((faq) => (
-                <FAQAccordionItem
-                  key={faq.id}
-                  faq={faq}
-                  isExpanded={expandedId === faq.id}
-                  onToggle={() => handleQuestionClick(faq.id)}
-                />
-              ))}
-              {filteredFAQs.length === 0 && <div className="text-center py-8 text-gray-500">검색 결과가 없습니다.</div>}
-            </div>
-          </>
-        ) : null}
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-medium text-gray-900">자주 묻는 질문</h3>
+          <p className="text-sm text-gray-500">{filteredFAQs.length}개의 질문</p>
+        </div>
+        <div className="space-y-2">
+          {filteredFAQs.map((faq) => (
+            <FAQAccordionItem
+              key={faq.id}
+              faq={faq}
+              isExpanded={expandedId === faq.id}
+              onToggle={() => handleQuestionClick(faq.id)}
+            />
+          ))}
+          {filteredFAQs.length === 0 && (
+            <div className="text-center py-8 text-gray-500">해당 카테고리에 질문이 없습니다.</div>
+          )}
+        </div>
       </div>
 
-      {/* All FAQs - 검색어가 없고 카테고리도 전체일 때 */}
-      {searchQuery === "" && selectedCategory === "all" && (
-        <div className="px-4 py-4">
-          <h3 className="font-medium text-gray-900 mb-4">자주 묻는 질문</h3>
+      {savedQuestions.length > 0 && (
+        <div className="px-4 py-4 border-t border-gray-200">
+          <h3 className="font-medium text-gray-900 mb-4">내가 저장한 질문</h3>
           <div className="space-y-2">
-            {FAQ_DATA.map((faq) => (
-              <FAQAccordionItem
-                key={faq.id}
-                faq={faq}
-                isExpanded={expandedId === faq.id}
-                onToggle={() => handleQuestionClick(faq.id)}
-              />
+            {savedQuestions.map((sq, index) => (
+              <div key={index} className="border border-violet-200 bg-violet-50 rounded-xl p-4">
+                <span className="text-xs text-violet-600 mb-1 block">
+                  {sq.category === "all" ? "전체" : FAQ_CATEGORIES.find((c) => c.id === sq.category)?.label}
+                </span>
+                <p className="text-sm text-gray-900">{sq.question}</p>
+              </div>
             ))}
           </div>
         </div>
