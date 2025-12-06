@@ -6,7 +6,20 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ChevronLeft, Plus, ChevronDown, ChevronUp, Clock, CheckCircle, AlertCircle, Loader2, X } from "lucide-react"
-import { REPORT_CATEGORIES, SAMPLE_REPORTS, type ReportItem } from "@/lib/data/report-data"
+import {
+  REPORT_CATEGORIES,
+  SAMPLE_REPORTS,
+  REPORT_STATUS_CONFIG,
+  type ReportItem,
+  type ReportStatus,
+} from "@/lib/data/report-data"
+
+const STATUS_ICONS: Record<ReportStatus, typeof Clock> = {
+  pending: Clock,
+  "in-progress": Loader2,
+  resolved: CheckCircle,
+  closed: AlertCircle,
+}
 
 export default function ReportPage() {
   const router = useRouter()
@@ -22,13 +35,20 @@ export default function ReportPage() {
   const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
-    // localStorage에서 사용자가 제출한 리포트 로드
     const savedReports = localStorage.getItem("userReports")
     if (savedReports) {
       setReports([...JSON.parse(savedReports), ...SAMPLE_REPORTS])
     } else {
       setReports(SAMPLE_REPORTS)
     }
+
+    // TODO: 백엔드 연동 시 아래 코드로 대체
+    // const fetchReports = async () => {
+    //   const response = await fetch('/api/reports')
+    //   const data = await response.json()
+    //   setReports(data)
+    // }
+    // fetchReports()
   }, [])
 
   const filteredReports = reports.filter((report) => {
@@ -58,7 +78,10 @@ export default function ReportPage() {
     setTimeout(() => setShowConfirm(false), 3000)
 
     // TODO: 백엔드 연동 시 API 호출
-    console.log("문제 보고 제출:", report)
+    // await fetch('/api/reports', {
+    //   method: 'POST',
+    //   body: JSON.stringify(report)
+    // })
   }
 
   const handleDeleteReport = (id: string) => {
@@ -66,18 +89,16 @@ export default function ReportPage() {
     const userReports = updated.filter((r) => !SAMPLE_REPORTS.find((s) => s.id === r.id))
     localStorage.setItem("userReports", JSON.stringify(userReports))
     setReports(updated)
+
+    // TODO: 백엔드 연동 시 API 호출
+    // await fetch(`/api/reports/${id}`, { method: 'DELETE' })
   }
 
-  const getStatusInfo = (status: ReportItem["status"]) => {
-    switch (status) {
-      case "pending":
-        return { label: "대기중", color: "text-amber-600", bg: "bg-amber-100", icon: Clock }
-      case "in-progress":
-        return { label: "처리중", color: "text-blue-600", bg: "bg-blue-100", icon: Loader2 }
-      case "resolved":
-        return { label: "해결됨", color: "text-green-600", bg: "bg-green-100", icon: CheckCircle }
-      case "closed":
-        return { label: "종료", color: "text-gray-600", bg: "bg-gray-100", icon: AlertCircle }
+  const getStatusInfo = (status: ReportStatus) => {
+    const config = REPORT_STATUS_CONFIG[status]
+    return {
+      ...config,
+      icon: STATUS_ICONS[status],
     }
   }
 
@@ -232,13 +253,7 @@ export default function ReportPage() {
               return (
                 <div
                   key={report.id}
-                  className={`border rounded-xl overflow-hidden ${
-                    report.status === "resolved"
-                      ? "border-green-200 bg-green-50"
-                      : report.status === "in-progress"
-                        ? "border-blue-200 bg-blue-50"
-                        : "border-gray-200 bg-white"
-                  }`}
+                  className={`border rounded-xl overflow-hidden ${statusInfo.borderColor} ${statusInfo.cardBg}`}
                 >
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : report.id)}
@@ -250,7 +265,7 @@ export default function ReportPage() {
                           {REPORT_CATEGORIES.find((c) => c.id === report.category)?.label}
                         </span>
                         <span
-                          className={`flex items-center gap-1 text-xs ${statusInfo.color} ${statusInfo.bg} px-2 py-0.5 rounded-full`}
+                          className={`flex items-center gap-1 text-xs ${statusInfo.textColor} ${statusInfo.bgColor} px-2 py-0.5 rounded-full`}
                         >
                           <StatusIcon className="w-3 h-3" /> {statusInfo.label}
                         </span>
@@ -282,7 +297,7 @@ export default function ReportPage() {
 
                   {isExpanded && (
                     <div className="px-4 pb-4 pt-0 space-y-3">
-                      <div className="bg-gray-100 p-3 rounded-lg">
+                      <div className="bg-white/80 p-3 rounded-lg">
                         <p className="text-xs text-gray-500 mb-1">상세 설명</p>
                         <p className="text-sm text-gray-700 leading-relaxed">{report.description}</p>
                       </div>

@@ -9,36 +9,76 @@ export const REPORT_CATEGORIES = [
   { id: "other", label: "기타" },
 ]
 
+export type ReportStatus = "pending" | "in-progress" | "resolved" | "closed"
+
+// 상태별 스타일 설정 (백엔드 연동 시 이 부분만 수정하면 됨)
+export const REPORT_STATUS_CONFIG: Record<
+  ReportStatus,
+  {
+    label: string
+    textColor: string
+    bgColor: string
+    borderColor: string
+    cardBg: string
+  }
+> = {
+  pending: {
+    label: "대기중",
+    textColor: "text-amber-600",
+    bgColor: "bg-amber-100",
+    borderColor: "border-gray-200",
+    cardBg: "bg-white", // 흰색
+  },
+  "in-progress": {
+    label: "처리중",
+    textColor: "text-blue-600",
+    bgColor: "bg-blue-100",
+    borderColor: "border-blue-200",
+    cardBg: "bg-blue-50", // 파란색
+  },
+  resolved: {
+    label: "해결됨",
+    textColor: "text-green-600",
+    bgColor: "bg-green-100",
+    borderColor: "border-green-200",
+    cardBg: "bg-green-50", // 초록색
+  },
+  closed: {
+    label: "종료",
+    textColor: "text-gray-600",
+    bgColor: "bg-gray-100",
+    borderColor: "border-gray-300",
+    cardBg: "bg-gray-50",
+  },
+}
+
 export interface ReportItem {
   id: string
   category: string
   title: string
   description: string
-  status: "pending" | "in-progress" | "resolved" | "closed"
+  status: ReportStatus
   createdAt: string
   updatedAt?: string
   response?: string
 }
 
-// 샘플 데이터 (나중에 백엔드 연동 시 API로 대체)
-export const SAMPLE_REPORTS: ReportItem[] = [
-  {
-    id: "1",
-    category: "bug",
-    title: "학습 화면에서 카드가 넘어가지 않아요",
-    description: "플래시카드 학습 중 '다음' 버튼을 눌러도 카드가 넘어가지 않는 현상이 발생합니다.",
-    status: "resolved",
-    createdAt: "2024-12-01T10:00:00Z",
-    updatedAt: "2024-12-03T14:00:00Z",
-    response: "해당 버그를 수정하여 배포 완료했습니다. 앱을 새로고침 해주세요. 불편을 드려 죄송합니다.",
-  },
-  {
-    id: "2",
-    category: "content",
-    title: "단어 발음이 잘못된 것 같아요",
-    description: "'schedule' 단어의 발음이 영국식/미국식 모두 이상하게 들립니다.",
-    status: "in-progress",
-    createdAt: "2024-12-04T09:00:00Z",
-    updatedAt: "2024-12-05T11:00:00Z",
-  },
-]
+// 백엔드 연동 시 이 배열 대신 API 응답 사용
+export const SAMPLE_REPORTS: ReportItem[] = []
+
+// ============================================
+// 백엔드 연동 가이드
+// ============================================
+// 1. API 엔드포인트 예시:
+//    - GET /api/reports - 사용자 리포트 목록 조회
+//    - POST /api/reports - 새 리포트 제출
+//    - DELETE /api/reports/:id - 리포트 삭제
+//
+// 2. 상태 업데이트 시:
+//    - 백엔드에서 status 필드를 변경하면 자동으로 색상 반영
+//    - pending(흰색) → in-progress(파란색) → resolved(초록색)
+//
+// 3. 답변 추가 시:
+//    - response 필드에 답변 내용 추가
+//    - updatedAt 필드 업데이트
+// ============================================
