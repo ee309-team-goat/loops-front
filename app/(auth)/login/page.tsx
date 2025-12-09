@@ -7,21 +7,29 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // TODO: Implement actual login logic with fetchClient
-    // await fetchClient('/auth/login', { method: 'POST', body: ... })
+    setError(null)
 
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      await login(email, password)
       router.push("/dashboard")
-    }, 1000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "로그인에 실패했습니다.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -38,11 +46,17 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">이메일</label>
             <input
               type="email"
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               placeholder="hello@example.com"
             />
@@ -53,6 +67,8 @@ export default function LoginPage() {
             <input
               type="password"
               required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               placeholder="••••••••"
             />

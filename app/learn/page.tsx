@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { MOCK_CARDS } from "@/lib/api/client"
 import { FSRS_RATING } from "@/lib/types/api"
 import { useSettings } from "@/components/settings-provider"
+import { AuthRequired } from "@/components/auth-required"
 import { Volume2, X, Mic, Lightbulb, Repeat, Check, XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -100,7 +101,6 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
     prevIsFlipped.current = isFlipped
   }, [isFlipped, settings.autoPlayAudio])
 
-  // Reset state when card changes
   useEffect(() => {
     setIsFlipped(false)
     setCurrentExampleIndex(0)
@@ -150,7 +150,6 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
 
   return (
     <>
-      {/* Card Area */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 perspective-1000">
         <div
           className={cn(
@@ -159,7 +158,6 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
           )}
           onClick={handleFlip}
         >
-          {/* Front */}
           <div className="absolute inset-0 bg-white rounded-3xl shadow-xl flex flex-col items-center justify-center p-8 backface-hidden border border-gray-100">
             <span className="text-4xl font-bold text-gray-900 mb-8">{card.word}</span>
             {showTutorial && (
@@ -170,7 +168,6 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
             )}
           </div>
 
-          {/* Back */}
           <div className="absolute inset-0 bg-white rounded-3xl shadow-xl flex flex-col p-6 backface-hidden rotate-y-180 border border-gray-100 overflow-y-auto">
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
               <div className="space-y-2">
@@ -250,7 +247,6 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
         </div>
       </div>
 
-      {/* Controls */}
       <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         {!isFlipped ? (
           <Button className="w-full py-6 text-lg font-medium" onClick={handleFlip}>
@@ -268,7 +264,6 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [isRevealed, setIsRevealed] = useState(false)
 
-  // Reset state when card changes
   useEffect(() => {
     setSelectedChoice(null)
     setIsRevealed(false)
@@ -279,14 +274,12 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
     const otherDefinitions = cards
       .filter((_, i) => i !== currentIndex)
       .map((c) => c.definition)
-      .filter((def) => def !== correctAnswer) // exclude correct answer
-      .filter((def, idx, arr) => arr.indexOf(def) === idx) // Remove duplicates
+      .filter((def) => def !== correctAnswer)
+      .filter((def, idx, arr) => arr.indexOf(def) === idx)
 
-    // Shuffle and take up to 3 incorrect answers
     const shuffledIncorrect = [...otherDefinitions].sort(() => Math.random() - 0.5)
     const incorrectAnswers = shuffledIncorrect.slice(0, Math.min(3, shuffledIncorrect.length))
 
-    // Combine and shuffle all choices
     const allChoices = [correctAnswer, ...incorrectAnswers]
     return allChoices.sort(() => Math.random() - 0.5)
   }, [card, cards, currentIndex])
@@ -299,16 +292,13 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
 
   return (
     <>
-      {/* Card Area */}
       <div className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm space-y-6">
-          {/* Prompt */}
           <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
             <span className="text-xs text-gray-400 mb-2 block">다음 단어의 뜻은?</span>
             <span className="text-4xl font-bold text-gray-900">{card.word}</span>
           </div>
 
-          {/* Choices - Use choices from useMemo instead of memoizedChoices */}
           <div className="space-y-3">
             {choices.map((choice, idx) => {
               const isSelected = selectedChoice === choice
@@ -345,7 +335,6 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
         </div>
       </div>
 
-      {/* Controls */}
       <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         {!isRevealed ? (
           <Button className="w-full py-6 text-lg font-medium" onClick={handleReveal} disabled={!selectedChoice}>
@@ -373,7 +362,6 @@ function TypingMode({ card, onRate }: ModeProps) {
   const [userInput, setUserInput] = useState("")
   const [isRevealed, setIsRevealed] = useState(false)
 
-  // Reset state when card changes
   useEffect(() => {
     setUserInput("")
     setIsRevealed(false)
@@ -396,16 +384,13 @@ function TypingMode({ card, onRate }: ModeProps) {
 
   return (
     <>
-      {/* Card Area */}
       <div className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm space-y-6">
-          {/* Prompt */}
           <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
             <span className="text-xs text-gray-400 mb-2 block">다음 뜻에 해당하는 영단어는?</span>
             <span className="text-2xl font-bold text-indigo-600">{card.definition}</span>
           </div>
 
-          {/* Input - Use handleFormSubmit for form onSubmit */}
           <form onSubmit={handleFormSubmit} className="space-y-4">
             <input
               type="text"
@@ -425,7 +410,6 @@ function TypingMode({ card, onRate }: ModeProps) {
             />
           </form>
 
-          {/* Result */}
           {isRevealed && (
             <div
               className={cn(
@@ -454,7 +438,6 @@ function TypingMode({ card, onRate }: ModeProps) {
         </div>
       </div>
 
-      {/* Controls - Use submitAnswer for onClick instead of handleSubmit */}
       <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         {!isRevealed ? (
           <Button className="w-full py-6 text-lg font-medium" onClick={submitAnswer} disabled={!userInput.trim()}>
@@ -499,29 +482,30 @@ export default function LearnPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header */}
-      <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm z-10">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
-          <X className="w-5 h-5 text-gray-500" />
-        </Button>
-        <div className="flex-1 mx-4">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>오늘의 학습</span>
-            <span>
-              {currentIndex + 1} / {cards.length}
-            </span>
+    <AuthRequired>
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm z-10">
+          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+            <X className="w-5 h-5 text-gray-500" />
+          </Button>
+          <div className="flex-1 mx-4">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>오늘의 학습</span>
+              <span>
+                {currentIndex + 1} / {cards.length}
+              </span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+            </div>
           </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }} />
-          </div>
+          <div className="w-10" />
         </div>
-        <div className="w-10" />
-      </div>
 
-      {settings.quizMode === "flashcard" && <FlashcardMode {...modeProps} />}
-      {settings.quizMode === "multiple-choice" && <MultipleChoiceMode {...modeProps} />}
-      {settings.quizMode === "typing" && <TypingMode {...modeProps} />}
-    </div>
+        {settings.quizMode === "flashcard" && <FlashcardMode {...modeProps} />}
+        {settings.quizMode === "multiple-choice" && <MultipleChoiceMode {...modeProps} />}
+        {settings.quizMode === "typing" && <TypingMode {...modeProps} />}
+      </div>
+    </AuthRequired>
   )
 }
