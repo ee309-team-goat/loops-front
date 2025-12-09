@@ -1,27 +1,15 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Bell, Volume2, Moon, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useSettings } from "@/components/settings-provider"
+import type { Settings } from "@/lib/settings/types"
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [settings, setSettings] = useState({
-    notificationsEnabled: true,
-    notificationTime: "09:00",
-    autoPlayAudio: false,
-    playbackSpeed: 1,
-    darkMode: false,
-    dailyGoal: 20,
-  })
-
-  const setSetting = (key: string, value: any) => {
-    setSettings((prev) => ({ ...prev, [key]: value }))
-    // TODO: Save to backend API
-    console.log(`[v0] Updated ${key}:`, value)
-  }
+  const { settings, setSetting } = useSettings()
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -110,7 +98,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <label className="block text-sm text-gray-700 font-medium">재생 속도</label>
               <div className="flex gap-2">
-                {[0.75, 1, 1.25].map((speed) => (
+                {([0.75, 1, 1.25] as const).map((speed) => (
                   <button
                     key={speed}
                     onClick={() => setSetting("playbackSpeed", speed)}
@@ -140,7 +128,7 @@ export default function SettingsPage() {
             <label className="block text-sm text-gray-700 font-medium">하루 목표 (단어 수)</label>
             <select
               value={settings.dailyGoal}
-              onChange={(e) => setSetting("dailyGoal", Number(e.target.value))}
+              onChange={(e) => setSetting("dailyGoal", Number(e.target.value) as Settings["dailyGoal"])}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value={10}>10개 (가볍게)</option>
