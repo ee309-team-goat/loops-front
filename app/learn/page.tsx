@@ -59,8 +59,6 @@ export default function LearnPage() {
   }
 
   const handleRate = (rating: number) => {
-    console.log(`[v0] Rated card ${currentCard.id} as ${rating}`)
-
     if (currentIndex < cards.length - 1) {
       setIsFlipped(false)
       setTimeout(() => {
@@ -84,7 +82,6 @@ export default function LearnPage() {
 
   const playAudio = (e: React.MouseEvent) => {
     e.stopPropagation()
-    console.log(`[v0] Playing audio for: ${currentCard.word} at ${settings.playbackSpeed}x speed`)
     playAudioWithSettings()
   }
 
@@ -94,7 +91,6 @@ export default function LearnPage() {
     setTimeout(() => {
       setCurrentExampleIndex((prev) => (prev + 1) % mockExamples.length)
       setIsGeneratingExample(false)
-      console.log("[v0] Generated new example")
     }, 800)
   }
 
@@ -103,12 +99,9 @@ export default function LearnPage() {
     setIsRecording(!isRecording)
 
     if (!isRecording) {
-      console.log("[v0] Started recording pronunciation")
-
       setTimeout(() => {
         setIsRecording(false)
         setShowPronunciationAnalysis(true)
-        console.log("[v0] Pronunciation analysis complete")
       }, 2000)
     }
   }

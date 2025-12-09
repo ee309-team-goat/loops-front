@@ -8,7 +8,7 @@ import { useSettings } from "@/components/settings-provider"
 
 export default function AudioSettingsPage() {
   const router = useRouter()
-  const { settings, updateSetting } = useSettings()
+  const { settings, setSetting } = useSettings()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -27,7 +27,7 @@ export default function AudioSettingsPage() {
               <div className="text-sm text-gray-500">카드를 뒤집으면 발음이 자동으로 재생돼요</div>
             </div>
             <button
-              onClick={() => updateSetting("autoPlayAudio", !settings.autoPlayAudio)}
+              onClick={() => setSetting("autoPlayAudio", !settings.autoPlayAudio)}
               className={cn(
                 "w-12 h-7 rounded-full transition-colors relative",
                 settings.autoPlayAudio ? "bg-indigo-600" : "bg-gray-300",
@@ -45,10 +45,10 @@ export default function AudioSettingsPage() {
           <div className="pt-2 border-t border-gray-100 space-y-2">
             <label className="block text-sm text-gray-700 font-medium">재생 속도</label>
             <div className="flex gap-2">
-              {[0.5, 0.75, 1, 1.25, 1.5, 2.0].map((speed) => (
+              {([0.75, 1, 1.25] as const).map((speed) => (
                 <button
                   key={speed}
-                  onClick={() => updateSetting("playbackSpeed", speed)}
+                  onClick={() => setSetting("playbackSpeed", speed)}
                   className={cn(
                     "flex-1 py-2 rounded-lg font-medium transition-colors text-sm",
                     settings.playbackSpeed === speed
@@ -68,7 +68,7 @@ export default function AudioSettingsPage() {
               <div className="text-sm text-gray-500">학습 중 효과음 재생</div>
             </div>
             <button
-              onClick={() => updateSetting("soundEffects", !settings.soundEffects)}
+              onClick={() => setSetting("soundEffects", !settings.soundEffects)}
               className={cn(
                 "w-12 h-7 rounded-full transition-colors relative",
                 settings.soundEffects ? "bg-indigo-600" : "bg-gray-300",

@@ -7,7 +7,7 @@ const STORAGE_KEY = "loops:settings"
 
 interface SettingsContextType {
   settings: Settings
-  updateSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void
+  setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void
   updateSettings: (partial: Partial<Settings>) => void
   resetSettings: () => void
 }
@@ -61,7 +61,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [settings, isLoaded])
 
-  const updateSetting = <K extends keyof Settings>(key: K, value: Settings[K]) => {
+  const setSetting = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -74,7 +74,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSetting, updateSettings, resetSettings }}>
+    <SettingsContext.Provider value={{ settings, setSetting, updateSettings, resetSettings }}>
       {children}
     </SettingsContext.Provider>
   )

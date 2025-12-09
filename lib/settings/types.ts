@@ -1,50 +1,43 @@
-export interface Settings {
-  // Audio settings
-  playbackSpeed: number
-  autoPlayAudio: boolean
-  soundEffects: boolean
-
-  // Notification settings
+export type Settings = {
   notificationsEnabled: boolean
-  notificationTime: string
+  notificationTime: string // "09:00"
   studyReport: boolean
   leagueAlerts: boolean
+  reviewReminder: boolean
 
-  // Vocabulary settings
-  dailyGoal: number
-  showMeaning: boolean
+  autoPlayAudio: boolean
+  playbackSpeed: 0.75 | 1 | 1.25
+  soundEffects: boolean
 
-  // Quiz settings
-  quizTypes: {
-    meaning: boolean
-    spelling: boolean
-    listening: boolean
-  }
+  darkMode: boolean
+
+  dailyGoal: 10 | 20 | 30 | 50
+  quizMode: "flashcard" | "multiple-choice" | "typing"
+  difficulty: "easy" | "medium" | "hard"
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  // Audio
-  playbackSpeed: 1.0,
-  autoPlayAudio: true,
-  soundEffects: true,
-
-  // Notifications
   notificationsEnabled: true,
   notificationTime: "09:00",
   studyReport: true,
   leagueAlerts: true,
+  reviewReminder: true,
 
-  // Vocabulary
+  autoPlayAudio: true,
+  playbackSpeed: 1,
+  soundEffects: true,
+
+  darkMode: false,
+
   dailyGoal: 20,
-  showMeaning: true,
-
-  // Quiz
-  quizTypes: {
-    meaning: true,
-    spelling: true,
-    listening: true,
-  },
+  quizMode: "flashcard",
+  difficulty: "medium",
 }
+
+const VALID_PLAYBACK_SPEEDS = [0.75, 1, 1.25] as const
+const VALID_DAILY_GOALS = [10, 20, 30, 50] as const
+const VALID_QUIZ_MODES = ["flashcard", "multiple-choice", "typing"] as const
+const VALID_DIFFICULTIES = ["easy", "medium", "hard"] as const
 
 export function validateSettings(data: unknown): Settings {
   if (!data || typeof data !== "object") {
@@ -54,16 +47,8 @@ export function validateSettings(data: unknown): Settings {
   const obj = data as Record<string, unknown>
 
   try {
+    // Only pick known keys, ignore unknown keys (like quizTypes/showMeaning from previous run)
     return {
-      playbackSpeed:
-        typeof obj.playbackSpeed === "number" && obj.playbackSpeed >= 0.5 && obj.playbackSpeed <= 2.0
-          ? obj.playbackSpeed
-          : DEFAULT_SETTINGS.playbackSpeed,
-
-      autoPlayAudio: typeof obj.autoPlayAudio === "boolean" ? obj.autoPlayAudio : DEFAULT_SETTINGS.autoPlayAudio,
-
-      soundEffects: typeof obj.soundEffects === "boolean" ? obj.soundEffects : DEFAULT_SETTINGS.soundEffects,
-
       notificationsEnabled:
         typeof obj.notificationsEnabled === "boolean"
           ? obj.notificationsEnabled
@@ -78,21 +63,29 @@ export function validateSettings(data: unknown): Settings {
 
       leagueAlerts: typeof obj.leagueAlerts === "boolean" ? obj.leagueAlerts : DEFAULT_SETTINGS.leagueAlerts,
 
-      dailyGoal:
-        typeof obj.dailyGoal === "number" && obj.dailyGoal >= 1 && obj.dailyGoal <= 100
-          ? obj.dailyGoal
-          : DEFAULT_SETTINGS.dailyGoal,
+      reviewReminder: typeof obj.reviewReminder === "boolean" ? obj.reviewReminder : DEFAULT_SETTINGS.reviewReminder,
 
-      showMeaning: typeof obj.showMeaning === "boolean" ? obj.showMeaning : DEFAULT_SETTINGS.showMeaning,
+      autoPlayAudio: typeof obj.autoPlayAudio === "boolean" ? obj.autoPlayAudio : DEFAULT_SETTINGS.autoPlayAudio,
 
-      quizTypes:
-        obj.quizTypes &&
-        typeof obj.quizTypes === "object" &&
-        typeof (obj.quizTypes as Record<string, unknown>).meaning === "boolean" &&
-        typeof (obj.quizTypes as Record<string, unknown>).spelling === "boolean" &&
-        typeof (obj.quizTypes as Record<string, unknown>).listening === "boolean"
-          ? (obj.quizTypes as Settings["quizTypes"])
-          : DEFAULT_SETTINGS.quizTypes,
+      playbackSpeed: VALID_PLAYBACK_SPEEDS.includes(obj.playbackSpeed as 0.75 | 1 | 1.25)
+        ? (obj.playbackSpeed as 0.75 | 1 | 1.25)
+        : DEFAULT_SETTINGS.playbackSpeed,
+
+      soundEffects: typeof obj.soundEffects === "boolean" ? obj.soundEffects : DEFAULT_SETTINGS.soundEffects,
+
+      darkMode: typeof obj.darkMode === "boolean" ? obj.darkMode : DEFAULT_SETTINGS.darkMode,
+
+      dailyGoal: VALID_DAILY_GOALS.includes(obj.dailyGoal as 10 | 20 | 30 | 50)
+        ? (obj.dailyGoal as 10 | 20 | 30 | 50)
+        : DEFAULT_SETTINGS.dailyGoal,
+
+      quizMode: VALID_QUIZ_MODES.includes(obj.quizMode as Settings["quizMode"])
+        ? (obj.quizMode as Settings["quizMode"])
+        : DEFAULT_SETTINGS.quizMode,
+
+      difficulty: VALID_DIFFICULTIES.includes(obj.difficulty as Settings["difficulty"])
+        ? (obj.difficulty as Settings["difficulty"])
+        : DEFAULT_SETTINGS.difficulty,
     }
   } catch {
     return DEFAULT_SETTINGS

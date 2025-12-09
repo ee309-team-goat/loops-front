@@ -8,7 +8,7 @@ import { useSettings } from "@/components/settings-provider"
 
 export default function NotificationsSettingsPage() {
   const router = useRouter()
-  const { settings, updateSetting } = useSettings()
+  const { settings, setSetting } = useSettings()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -27,7 +27,7 @@ export default function NotificationsSettingsPage() {
               <div className="text-sm text-gray-500">복습할 단어가 있을 때 알려드려요</div>
             </div>
             <button
-              onClick={() => updateSetting("notificationsEnabled", !settings.notificationsEnabled)}
+              onClick={() => setSetting("notificationsEnabled", !settings.notificationsEnabled)}
               className={cn(
                 "w-12 h-7 rounded-full transition-colors relative",
                 settings.notificationsEnabled ? "bg-indigo-600" : "bg-gray-300",
@@ -48,7 +48,7 @@ export default function NotificationsSettingsPage() {
               <input
                 type="time"
                 value={settings.notificationTime}
-                onChange={(e) => updateSetting("notificationTime", e.target.value)}
+                onChange={(e) => setSetting("notificationTime", e.target.value)}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <p className="text-xs text-gray-400">매일 이 시간에 복습 알림을 보내드려요</p>
@@ -57,11 +57,32 @@ export default function NotificationsSettingsPage() {
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
             <div>
+              <div className="font-medium text-gray-900">복습 리마인더</div>
+              <div className="text-sm text-gray-500">복습 시간을 놓치면 다시 알려드려요</div>
+            </div>
+            <button
+              onClick={() => setSetting("reviewReminder", !settings.reviewReminder)}
+              className={cn(
+                "w-12 h-7 rounded-full transition-colors relative",
+                settings.reviewReminder ? "bg-indigo-600" : "bg-gray-300",
+              )}
+            >
+              <div
+                className={cn(
+                  "absolute top-1 w-5 h-5 bg-white rounded-full transition-transform",
+                  settings.reviewReminder ? "translate-x-6" : "translate-x-1",
+                )}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            <div>
               <div className="font-medium text-gray-900">학습 리포트</div>
               <div className="text-sm text-gray-500">주간 학습 리포트 알림</div>
             </div>
             <button
-              onClick={() => updateSetting("studyReport", !settings.studyReport)}
+              onClick={() => setSetting("studyReport", !settings.studyReport)}
               className={cn(
                 "w-12 h-7 rounded-full transition-colors relative",
                 settings.studyReport ? "bg-indigo-600" : "bg-gray-300",
@@ -82,7 +103,7 @@ export default function NotificationsSettingsPage() {
               <div className="text-sm text-gray-500">리그 업데이트 및 순위 변동 알림</div>
             </div>
             <button
-              onClick={() => updateSetting("leagueAlerts", !settings.leagueAlerts)}
+              onClick={() => setSetting("leagueAlerts", !settings.leagueAlerts)}
               className={cn(
                 "w-12 h-7 rounded-full transition-colors relative",
                 settings.leagueAlerts ? "bg-indigo-600" : "bg-gray-300",

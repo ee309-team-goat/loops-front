@@ -1,14 +1,14 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useSettings } from "@/components/settings-provider"
 
 export default function DisplaySettingsPage() {
   const router = useRouter()
-  const [darkMode, setDarkMode] = useState(false)
+  const { settings, setSetting } = useSettings()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -27,16 +27,16 @@ export default function DisplaySettingsPage() {
               <div className="text-sm text-gray-500">야간 학습 시 눈의 피로를 줄여줘요</div>
             </div>
             <button
-              onClick={() => setDarkMode(!darkMode)}
+              onClick={() => setSetting("darkMode", !settings.darkMode)}
               className={cn(
                 "w-12 h-7 rounded-full transition-colors relative",
-                darkMode ? "bg-indigo-600" : "bg-gray-300",
+                settings.darkMode ? "bg-indigo-600" : "bg-gray-300",
               )}
             >
               <div
                 className={cn(
                   "absolute top-1 w-5 h-5 bg-white rounded-full transition-transform",
-                  darkMode ? "translate-x-6" : "translate-x-1",
+                  settings.darkMode ? "translate-x-6" : "translate-x-1",
                 )}
               />
             </button>
