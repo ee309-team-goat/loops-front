@@ -86,21 +86,22 @@ export function getRefreshToken(): string | undefined {
 export function setTokens(accessToken: string, refreshToken: string): void {
   if (typeof window === "undefined") return
 
-  // Update cache
-  tokenCache = {
-    access_token: accessToken,
-    refresh_token: refreshToken,
+  let user: AuthPayload["user"] = undefined
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed?.user && typeof parsed.user === "object") {
+        user = parsed.user
+      }
+    }
+  } catch {
+    // ignore parse errors
   }
 
-  // Preserve user when updating tokens
-  const existing = loadAuth()
-  localStorage.setItem(
-    AUTH_STORAGE_KEY,
-    JSON.stringify({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      user: existing?.user,
-    }),
-  )
-  emitAuthChanged()
+  saveAuth({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    user,
+  })
 }
