@@ -17,7 +17,7 @@ export default function SettingsPage() {
     dailyGoal: 20,
   })
 
-  const updateSetting = (key: string, value: any) => {
+  const setSetting = (key: string, value: any) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
     // TODO: Save to backend API
     console.log(`[v0] Updated ${key}:`, value)
@@ -48,7 +48,7 @@ export default function SettingsPage() {
                 <div className="text-sm text-gray-500">복습할 단어가 있을 때 알려드려요</div>
               </div>
               <button
-                onClick={() => updateSetting("notificationsEnabled", !settings.notificationsEnabled)}
+                onClick={() => setSetting("notificationsEnabled", !settings.notificationsEnabled)}
                 className={cn(
                   "w-12 h-7 rounded-full transition-colors relative",
                   settings.notificationsEnabled ? "bg-indigo-600" : "bg-gray-300",
@@ -69,7 +69,7 @@ export default function SettingsPage() {
                 <input
                   type="time"
                   value={settings.notificationTime}
-                  onChange={(e) => updateSetting("notificationTime", e.target.value)}
+                  onChange={(e) => setSetting("notificationTime", e.target.value)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <p className="text-xs text-gray-400">매일 이 시간에 복습 알림을 보내드려요</p>
@@ -92,7 +92,7 @@ export default function SettingsPage() {
                 <div className="text-sm text-gray-500">카드를 뒤집으면 발음이 자동으로 재생돼요</div>
               </div>
               <button
-                onClick={() => updateSetting("autoPlayAudio", !settings.autoPlayAudio)}
+                onClick={() => setSetting("autoPlayAudio", !settings.autoPlayAudio)}
                 className={cn(
                   "w-12 h-7 rounded-full transition-colors relative",
                   settings.autoPlayAudio ? "bg-indigo-600" : "bg-gray-300",
@@ -113,7 +113,7 @@ export default function SettingsPage() {
                 {[0.75, 1, 1.25].map((speed) => (
                   <button
                     key={speed}
-                    onClick={() => updateSetting("playbackSpeed", speed)}
+                    onClick={() => setSetting("playbackSpeed", speed)}
                     className={cn(
                       "flex-1 py-2 rounded-lg font-medium transition-colors",
                       settings.playbackSpeed === speed
@@ -140,7 +140,7 @@ export default function SettingsPage() {
             <label className="block text-sm text-gray-700 font-medium">하루 목표 (단어 수)</label>
             <select
               value={settings.dailyGoal}
-              onChange={(e) => updateSetting("dailyGoal", Number(e.target.value))}
+              onChange={(e) => setSetting("dailyGoal", Number(e.target.value))}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value={10}>10개 (가볍게)</option>
@@ -164,7 +164,7 @@ export default function SettingsPage() {
               <div className="text-sm text-gray-500">야간 학습 시 눈의 피로를 줄여줘요</div>
             </div>
             <button
-              onClick={() => updateSetting("darkMode", !settings.darkMode)}
+              onClick={() => setSetting("darkMode", !settings.darkMode)}
               className={cn(
                 "w-12 h-7 rounded-full transition-colors relative",
                 settings.darkMode ? "bg-indigo-600" : "bg-gray-300",
