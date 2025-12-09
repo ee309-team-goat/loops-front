@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MOCK_CARDS } from "@/lib/api/client"
@@ -274,26 +274,21 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
     setIsRevealed(false)
   }, [card, currentIndex])
 
-  // Generate 4 choices: 1 correct + 3 random incorrect
-  const choices = (() => {
+  const choices = useMemo(() => {
     const correctAnswer = card.definition
-    const otherCards = cards.filter((_, i) => i !== currentIndex)
-    const shuffled = [...otherCards].sort(() => Math.random() - 0.5)
-    const incorrectAnswers = shuffled.slice(0, 3).map((c) => c.definition)
-    const allChoices = [correctAnswer, ...incorrectAnswers]
-    // Shuffle all choices
-    return allChoices.sort(() => Math.random() - 0.5)
-  })()
+    const otherDefinitions = cards
+      .filter((_, i) => i !== currentIndex)
+      .map((c) => c.definition)
+      .filter((def, idx, arr) => arr.indexOf(def) === idx) // Remove duplicates
 
-  // Memoize choices to prevent re-shuffle on re-render
-  const [memoizedChoices] = useState(() => {
-    const correctAnswer = card.definition
-    const otherCards = cards.filter((_, i) => i !== currentIndex)
-    const shuffled = [...otherCards].sort(() => Math.random() - 0.5)
-    const incorrectAnswers = shuffled.slice(0, 3).map((c) => c.definition)
+    // Shuffle and take up to 3 incorrect answers
+    const shuffledIncorrect = [...otherDefinitions].sort(() => Math.random() - 0.5)
+    const incorrectAnswers = shuffledIncorrect.slice(0, Math.min(3, shuffledIncorrect.length))
+
+    // Combine and shuffle all choices
     const allChoices = [correctAnswer, ...incorrectAnswers]
     return allChoices.sort(() => Math.random() - 0.5)
-  })
+  }, [card, cards, currentIndex])
 
   const isCorrect = selectedChoice === card.definition
 
@@ -312,9 +307,9 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
             <span className="text-4xl font-bold text-gray-900">{card.word}</span>
           </div>
 
-          {/* Choices */}
+          {/* Choices - Use choices from useMemo instead of memoizedChoices */}
           <div className="space-y-3">
-            {memoizedChoices.map((choice, idx) => {
+            {choices.map((choice, idx) => {
               const isSelected = selectedChoice === choice
               const isCorrectChoice = choice === card.definition
 
@@ -387,11 +382,15 @@ function TypingMode({ card, onRate }: ModeProps) {
   const normalizedAnswer = card.word.trim().toLowerCase()
   const isCorrect = normalizedInput === normalizedAnswer
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const submitAnswer = () => {
     if (userInput.trim()) {
       setIsRevealed(true)
     }
+  }
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    submitAnswer()
   }
 
   return (
@@ -405,8 +404,8 @@ function TypingMode({ card, onRate }: ModeProps) {
             <span className="text-2xl font-bold text-indigo-600">{card.definition}</span>
           </div>
 
-          {/* Input */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Input - Use handleFormSubmit for form onSubmit */}
+          <form onSubmit={handleFormSubmit} className="space-y-4">
             <input
               type="text"
               value={userInput}
@@ -454,10 +453,10 @@ function TypingMode({ card, onRate }: ModeProps) {
         </div>
       </div>
 
-      {/* Controls */}
+      {/* Controls - Use submitAnswer for onClick instead of handleSubmit */}
       <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         {!isRevealed ? (
-          <Button className="w-full py-6 text-lg font-medium" onClick={handleSubmit} disabled={!userInput.trim()}>
+          <Button className="w-full py-6 text-lg font-medium" onClick={submitAnswer} disabled={!userInput.trim()}>
             정답 확인
           </Button>
         ) : (
