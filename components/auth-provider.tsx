@@ -2,7 +2,13 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { loadAuth, saveAuth, clearAuth as clearAuthStorage, type AuthPayload } from "@/lib/auth/storage"
+import {
+  loadAuth,
+  saveAuth,
+  clearAuth as clearAuthStorage,
+  type AuthPayload,
+  AUTH_CHANGED_EVENT,
+} from "@/lib/auth/storage"
 import { apiFetch } from "@/lib/api/http"
 
 interface User {
@@ -40,17 +46,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [accessToken, setAccessToken] = useState<string | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(true)
 
-  // On mount, load auth from storage
-  useEffect(() => {
+  const syncFromStorage = useCallback(() => {
     const auth = loadAuth()
-    if (auth) {
-      setAccessToken(auth.access_token)
-      if (auth.user) {
-        setUser(auth.user as User)
-      }
-    }
-    setIsLoading(false)
+    setAccessToken(auth?.access_token)
+    setUser((auth?.user as User) ?? null)
   }, [])
+
+  // On mount, load auth from storage and listen for auth changes
+  useEffect(() => {
+    syncFromStorage()
+    setIsLoading(false)
+
+    window.addEventListener(AUTH_CHANGED_EVENT, syncFromStorage)
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, syncFromStorage)
+    }
+  }, [syncFromStorage])
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await apiFetch<{
@@ -68,8 +79,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       user: response.user,
     }
     saveAuth(payload)
-    setAccessToken(response.access_token)
-    setUser(response.user)
+    // State will be updated via AUTH_CHANGED_EVENT listener
   }, [])
 
   const register = useCallback(async (email: string, username: string, password: string) => {
@@ -88,8 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       user: response.user,
     }
     saveAuth(payload)
-    setAccessToken(response.access_token)
-    setUser(response.user)
+    // State will be updated via AUTH_CHANGED_EVENT listener
   }, [])
 
   const logout = useCallback(async () => {
@@ -102,8 +111,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Ignore errors on logout
     } finally {
       clearAuthStorage()
-      setAccessToken(undefined)
-      setUser(null)
+      // State will be updated via AUTH_CHANGED_EVENT listener
     }
   }, [])
 

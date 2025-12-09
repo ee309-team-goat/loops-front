@@ -1,4 +1,5 @@
 const AUTH_STORAGE_KEY = "loops:auth"
+export const AUTH_CHANGED_EVENT = "loops:auth-changed"
 
 export interface AuthPayload {
   access_token?: string
@@ -12,6 +13,12 @@ export interface AuthPayload {
 
 // In-memory cache for tokens
 let tokenCache: { access_token?: string; refresh_token?: string } = {}
+
+export function emitAuthChanged(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_CHANGED_EVENT))
+  }
+}
 
 export function loadAuth(): AuthPayload | null {
   if (typeof window === "undefined") return null
@@ -51,6 +58,7 @@ export function saveAuth(payload: AuthPayload): void {
   }
 
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload))
+  emitAuthChanged()
 }
 
 export function clearAuth(): void {
@@ -58,6 +66,7 @@ export function clearAuth(): void {
 
   tokenCache = {}
   localStorage.removeItem(AUTH_STORAGE_KEY)
+  emitAuthChanged()
 }
 
 export function getAccessToken(): string | undefined {
@@ -85,9 +94,13 @@ export function setTokens(accessToken: string, refreshToken: string): void {
 
   // Preserve user when updating tokens
   const existing = loadAuth()
-  saveAuth({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    user: existing?.user,
-  })
+  localStorage.setItem(
+    AUTH_STORAGE_KEY,
+    JSON.stringify({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: existing?.user,
+    }),
+  )
+  emitAuthChanged()
 }
