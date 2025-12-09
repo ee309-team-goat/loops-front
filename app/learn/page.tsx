@@ -8,27 +8,75 @@ import { Button } from "@/components/ui/button"
 import { MOCK_CARDS } from "@/lib/api/client"
 import { FSRS_RATING } from "@/lib/types/api"
 import { useSettings } from "@/components/settings-provider"
-import { Volume2, X, Mic, Lightbulb, Repeat } from "lucide-react"
+import { Volume2, X, Mic, Lightbulb, Repeat, Check, XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export default function LearnPage() {
-  const router = useRouter()
-  const { settings } = useSettings()
+type Card = (typeof MOCK_CARDS)[number]
 
-  const [currentIndex, setCurrentIndex] = useState(0)
+interface ModeProps {
+  card: Card
+  cards: Card[]
+  currentIndex: number
+  onRate: (rating: number) => void
+  playbackSpeed: number
+}
+
+function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="danger"
+          className="h-14 bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 border-0"
+          onClick={() => onRate(FSRS_RATING.AGAIN)}
+        >
+          Again
+        </Button>
+        <span className="text-[10px] text-center text-gray-400 font-medium">10분 후</span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="secondary"
+          className="h-14 bg-orange-100 text-orange-600 hover:bg-orange-200 hover:text-orange-700 border-0"
+          onClick={() => onRate(FSRS_RATING.HARD)}
+        >
+          Hard
+        </Button>
+        <span className="text-[10px] text-center text-gray-400 font-medium">1시간 후</span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="success"
+          className="h-14 bg-green-100 text-green-600 hover:bg-green-200 hover:text-green-700 border-0"
+          onClick={() => onRate(FSRS_RATING.GOOD)}
+        >
+          Good
+        </Button>
+        <span className="text-[10px] text-center text-gray-400 font-medium">1일 후</span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="primary"
+          className="h-14 bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 border-0"
+          onClick={() => onRate(FSRS_RATING.EASY)}
+        >
+          Easy
+        </Button>
+        <span className="text-[10px] text-center text-gray-400 font-medium">4일 후</span>
+      </div>
+    </div>
+  )
+}
+
+function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
+  const { settings } = useSettings()
   const [isFlipped, setIsFlipped] = useState(false)
-  const [cards, setCards] = useState(MOCK_CARDS)
-  const [completedCount, setCompletedCount] = useState(0)
   const [showTutorial, setShowTutorial] = useState(true)
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0)
   const [isGeneratingExample, setIsGeneratingExample] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [showPronunciationAnalysis, setShowPronunciationAnalysis] = useState(false)
-
   const prevIsFlipped = useRef(false)
-
-  const currentCard = cards[currentIndex]
-  const progress = (currentIndex / cards.length) * 100
 
   const mockExamples = [
     {
@@ -47,35 +95,28 @@ export default function LearnPage() {
 
   useEffect(() => {
     if (isFlipped && !prevIsFlipped.current && settings.autoPlayAudio) {
-      // Card just flipped to back - auto play audio
       playAudioWithSettings()
     }
     prevIsFlipped.current = isFlipped
   }, [isFlipped, settings.autoPlayAudio])
+
+  // Reset state when card changes
+  useEffect(() => {
+    setIsFlipped(false)
+    setCurrentExampleIndex(0)
+    setShowPronunciationAnalysis(false)
+  }, [card])
 
   const handleFlip = () => {
     setIsFlipped(!isFlipped)
     if (showTutorial) setShowTutorial(false)
   }
 
-  const handleRate = (rating: number) => {
-    if (currentIndex < cards.length - 1) {
-      setIsFlipped(false)
-      setTimeout(() => {
-        setCurrentIndex((prev) => prev + 1)
-        setCurrentExampleIndex(0)
-      }, 300)
-      setCompletedCount((prev) => prev + 1)
-    } else {
-      router.push("/dashboard")
-    }
-  }
-
   const playAudioWithSettings = () => {
     if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(currentCard.word)
+      const utterance = new SpeechSynthesisUtterance(card.word)
       utterance.lang = "en-US"
-      utterance.rate = settings.playbackSpeed
+      utterance.rate = playbackSpeed
       window.speechSynthesis.speak(utterance)
     }
   }
@@ -97,7 +138,6 @@ export default function LearnPage() {
   const toggleRecording = (e: React.MouseEvent) => {
     e.stopPropagation()
     setIsRecording(!isRecording)
-
     if (!isRecording) {
       setTimeout(() => {
         setIsRecording(false)
@@ -109,26 +149,7 @@ export default function LearnPage() {
   const currentExample = mockExamples[currentExampleIndex]
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header */}
-      <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm z-10">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
-          <X className="w-5 h-5 text-gray-500" />
-        </Button>
-        <div className="flex-1 mx-4">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>오늘의 학습</span>
-            <span>
-              {currentIndex + 1} / {cards.length}
-            </span>
-          </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-        <div className="w-10" />
-      </div>
-
+    <>
       {/* Card Area */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 perspective-1000">
         <div
@@ -140,8 +161,7 @@ export default function LearnPage() {
         >
           {/* Front */}
           <div className="absolute inset-0 bg-white rounded-3xl shadow-xl flex flex-col items-center justify-center p-8 backface-hidden border border-gray-100">
-            <span className="text-4xl font-bold text-gray-900 mb-8">{currentCard.word}</span>
-
+            <span className="text-4xl font-bold text-gray-900 mb-8">{card.word}</span>
             {showTutorial && (
               <div className="absolute bottom-8 animate-bounce text-gray-400 text-sm flex flex-col items-center">
                 <span>👆</span>
@@ -155,7 +175,7 @@ export default function LearnPage() {
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-center gap-2">
-                  <h2 className="text-3xl font-bold text-gray-900">{currentCard.word}</h2>
+                  <h2 className="text-3xl font-bold text-gray-900">{card.word}</h2>
                   <button
                     onClick={playAudio}
                     className="p-2 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
@@ -163,21 +183,17 @@ export default function LearnPage() {
                     <Volume2 className="w-5 h-5" />
                   </button>
                 </div>
-                <p className="text-gray-500 font-mono text-sm">{currentCard.pronunciation}</p>
+                <p className="text-gray-500 font-mono text-sm">{card.pronunciation}</p>
               </div>
-
               <div className="flex gap-1 text-xs">
                 <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-600 font-medium">
-                  {settings.playbackSpeed}x
+                  {playbackSpeed}x
                 </span>
               </div>
-
               <div className="w-12 h-1 bg-gray-100 rounded-full" />
-
               <div className="space-y-1">
-                <p className="text-2xl font-bold text-indigo-600">{currentCard.definition}</p>
+                <p className="text-2xl font-bold text-indigo-600">{card.definition}</p>
               </div>
-
               <div className="bg-gray-50 p-4 rounded-xl w-full text-left space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-400 font-medium">예문 {currentExampleIndex + 1}</span>
@@ -193,7 +209,6 @@ export default function LearnPage() {
                 <p className="text-gray-800 font-medium">"{currentExample.sentence}"</p>
                 <p className="text-gray-500 text-sm">{currentExample.translation}</p>
               </div>
-
               <button
                 onClick={toggleRecording}
                 className={cn(
@@ -204,7 +219,6 @@ export default function LearnPage() {
                 <Mic className="w-4 h-4" />
                 <span className="text-sm font-medium">{isRecording ? "녹음 중..." : "발음 연습"}</span>
               </button>
-
               {showPronunciationAnalysis && (
                 <div className="bg-indigo-50 p-4 rounded-xl w-full text-left space-y-2 border border-indigo-100">
                   <div className="flex items-center justify-between">
@@ -243,65 +257,271 @@ export default function LearnPage() {
             정답 확인하기
           </Button>
         ) : (
-          <div className="grid grid-cols-4 gap-2">
-            <div className="flex flex-col gap-1">
-              <Button
-                variant="danger"
-                className="h-14 bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 border-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRate(FSRS_RATING.AGAIN)
-                }}
-              >
-                Again
-              </Button>
-              <span className="text-[10px] text-center text-gray-400 font-medium">10분 후</span>
-            </div>
+          <RatingButtons onRate={onRate} />
+        )}
+      </div>
+    </>
+  )
+}
 
-            <div className="flex flex-col gap-1">
-              <Button
-                variant="secondary"
-                className="h-14 bg-orange-100 text-orange-600 hover:bg-orange-200 hover:text-orange-700 border-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRate(FSRS_RATING.HARD)
-                }}
-              >
-                Hard
-              </Button>
-              <span className="text-[10px] text-center text-gray-400 font-medium">1시간 후</span>
-            </div>
+function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
+  const [isRevealed, setIsRevealed] = useState(false)
 
-            <div className="flex flex-col gap-1">
-              <Button
-                variant="success"
-                className="h-14 bg-green-100 text-green-600 hover:bg-green-200 hover:text-green-700 border-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRate(FSRS_RATING.GOOD)
-                }}
-              >
-                Good
-              </Button>
-              <span className="text-[10px] text-center text-gray-400 font-medium">1일 후</span>
-            </div>
+  // Reset state when card changes
+  useEffect(() => {
+    setSelectedChoice(null)
+    setIsRevealed(false)
+  }, [card, currentIndex])
 
-            <div className="flex flex-col gap-1">
-              <Button
-                variant="primary"
-                className="h-14 bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 border-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRate(FSRS_RATING.EASY)
-                }}
-              >
-                Easy
-              </Button>
-              <span className="text-[10px] text-center text-gray-400 font-medium">4일 후</span>
+  // Generate 4 choices: 1 correct + 3 random incorrect
+  const choices = (() => {
+    const correctAnswer = card.definition
+    const otherCards = cards.filter((_, i) => i !== currentIndex)
+    const shuffled = [...otherCards].sort(() => Math.random() - 0.5)
+    const incorrectAnswers = shuffled.slice(0, 3).map((c) => c.definition)
+    const allChoices = [correctAnswer, ...incorrectAnswers]
+    // Shuffle all choices
+    return allChoices.sort(() => Math.random() - 0.5)
+  })()
+
+  // Memoize choices to prevent re-shuffle on re-render
+  const [memoizedChoices] = useState(() => {
+    const correctAnswer = card.definition
+    const otherCards = cards.filter((_, i) => i !== currentIndex)
+    const shuffled = [...otherCards].sort(() => Math.random() - 0.5)
+    const incorrectAnswers = shuffled.slice(0, 3).map((c) => c.definition)
+    const allChoices = [correctAnswer, ...incorrectAnswers]
+    return allChoices.sort(() => Math.random() - 0.5)
+  })
+
+  const isCorrect = selectedChoice === card.definition
+
+  const handleReveal = () => {
+    setIsRevealed(true)
+  }
+
+  return (
+    <>
+      {/* Card Area */}
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-sm space-y-6">
+          {/* Prompt */}
+          <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
+            <span className="text-xs text-gray-400 mb-2 block">다음 단어의 뜻은?</span>
+            <span className="text-4xl font-bold text-gray-900">{card.word}</span>
+          </div>
+
+          {/* Choices */}
+          <div className="space-y-3">
+            {memoizedChoices.map((choice, idx) => {
+              const isSelected = selectedChoice === choice
+              const isCorrectChoice = choice === card.definition
+
+              let buttonClass = "bg-white border-gray-200 text-gray-700 hover:border-indigo-300"
+              if (isRevealed) {
+                if (isCorrectChoice) {
+                  buttonClass = "bg-green-50 border-green-500 text-green-700"
+                } else if (isSelected && !isCorrectChoice) {
+                  buttonClass = "bg-red-50 border-red-500 text-red-700"
+                }
+              } else if (isSelected) {
+                buttonClass = "bg-indigo-50 border-indigo-500 text-indigo-700"
+              }
+
+              return (
+                <button
+                  key={idx}
+                  onClick={() => !isRevealed && setSelectedChoice(choice)}
+                  disabled={isRevealed}
+                  className={cn(
+                    "w-full p-4 rounded-xl border-2 text-left font-medium transition-all flex items-center justify-between",
+                    buttonClass,
+                  )}
+                >
+                  <span>{choice}</span>
+                  {isRevealed && isCorrectChoice && <Check className="w-5 h-5 text-green-600" />}
+                  {isRevealed && isSelected && !isCorrectChoice && <XIcon className="w-5 h-5 text-red-600" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        {!isRevealed ? (
+          <Button className="w-full py-6 text-lg font-medium" onClick={handleReveal} disabled={!selectedChoice}>
+            정답 확인
+          </Button>
+        ) : (
+          <div className="space-y-4">
+            <div
+              className={cn(
+                "text-center py-2 rounded-lg font-medium",
+                isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700",
+              )}
+            >
+              {isCorrect ? "정답입니다!" : `오답! 정답: ${card.definition}`}
             </div>
+            <RatingButtons onRate={onRate} />
           </div>
         )}
       </div>
+    </>
+  )
+}
+
+function TypingMode({ card, onRate }: ModeProps) {
+  const [userInput, setUserInput] = useState("")
+  const [isRevealed, setIsRevealed] = useState(false)
+
+  // Reset state when card changes
+  useEffect(() => {
+    setUserInput("")
+    setIsRevealed(false)
+  }, [card])
+
+  const normalizedInput = userInput.trim().toLowerCase()
+  const normalizedAnswer = card.word.trim().toLowerCase()
+  const isCorrect = normalizedInput === normalizedAnswer
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (userInput.trim()) {
+      setIsRevealed(true)
+    }
+  }
+
+  return (
+    <>
+      {/* Card Area */}
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-sm space-y-6">
+          {/* Prompt */}
+          <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
+            <span className="text-xs text-gray-400 mb-2 block">다음 뜻에 해당하는 영단어는?</span>
+            <span className="text-2xl font-bold text-indigo-600">{card.definition}</span>
+          </div>
+
+          {/* Input */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+              type="text"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              disabled={isRevealed}
+              placeholder="영단어를 입력하세요"
+              className={cn(
+                "w-full p-4 rounded-xl border-2 text-center text-xl font-medium transition-all outline-none",
+                isRevealed
+                  ? isCorrect
+                    ? "bg-green-50 border-green-500 text-green-700"
+                    : "bg-red-50 border-red-500 text-red-700"
+                  : "bg-white border-gray-200 focus:border-indigo-500",
+              )}
+              autoFocus
+            />
+          </form>
+
+          {/* Result */}
+          {isRevealed && (
+            <div
+              className={cn(
+                "text-center py-3 rounded-xl font-medium",
+                isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700",
+              )}
+            >
+              {isCorrect ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Check className="w-5 h-5" />
+                  <span>정답입니다!</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center gap-2">
+                    <XIcon className="w-5 h-5" />
+                    <span>오답!</span>
+                  </div>
+                  <div className="text-sm">
+                    정답: <strong>{card.word}</strong>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        {!isRevealed ? (
+          <Button className="w-full py-6 text-lg font-medium" onClick={handleSubmit} disabled={!userInput.trim()}>
+            정답 확인
+          </Button>
+        ) : (
+          <RatingButtons onRate={onRate} />
+        )}
+      </div>
+    </>
+  )
+}
+
+export default function LearnPage() {
+  const router = useRouter()
+  const { settings } = useSettings()
+
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [cards, setCards] = useState(MOCK_CARDS)
+  const [completedCount, setCompletedCount] = useState(0)
+
+  const currentCard = cards[currentIndex]
+  const progress = (currentIndex / cards.length) * 100
+
+  const handleRate = (rating: number) => {
+    if (currentIndex < cards.length - 1) {
+      setTimeout(() => {
+        setCurrentIndex((prev) => prev + 1)
+      }, 300)
+      setCompletedCount((prev) => prev + 1)
+    } else {
+      router.push("/dashboard")
+    }
+  }
+
+  const modeProps: ModeProps = {
+    card: currentCard,
+    cards,
+    currentIndex,
+    onRate: handleRate,
+    playbackSpeed: settings.playbackSpeed,
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Header */}
+      <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm z-10">
+        <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+          <X className="w-5 h-5 text-gray-500" />
+        </Button>
+        <div className="flex-1 mx-4">
+          <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <span>오늘의 학습</span>
+            <span>
+              {currentIndex + 1} / {cards.length}
+            </span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+        <div className="w-10" />
+      </div>
+
+      {settings.quizMode === "flashcard" && <FlashcardMode {...modeProps} />}
+      {settings.quizMode === "multiple-choice" && <MultipleChoiceMode {...modeProps} />}
+      {settings.quizMode === "typing" && <TypingMode {...modeProps} />}
     </div>
   )
 }
