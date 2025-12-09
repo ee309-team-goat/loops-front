@@ -1,22 +1,14 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { useSettings } from "@/components/settings-provider"
 
 export default function VocabularySettingsPage() {
   const router = useRouter()
-  const [settings, setSettings] = useState({
-    dailyGoal: 20,
-    quizMode: "multiple-choice",
-    difficulty: "medium",
-  })
-
-  const updateSetting = (key: string, value: any) => {
-    setSettings((prev) => ({ ...prev, [key]: value }))
-    console.log(`[v0] Updated ${key}:`, value)
-  }
+  const { settings, updateSetting } = useSettings()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -43,30 +35,58 @@ export default function VocabularySettingsPage() {
             </select>
           </div>
 
-          <div className="space-y-2 pt-2 border-t border-gray-100">
-            <label className="block text-sm text-gray-700 font-medium">퀴즈 방식</label>
-            <select
-              value={settings.quizMode}
-              onChange={(e) => updateSetting("quizMode", e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="flashcard">플래시카드</option>
-              <option value="multiple-choice">객관식</option>
-              <option value="typing">직접 입력</option>
-            </select>
+          <div className="pt-2 border-t border-gray-100 space-y-2">
+            <label className="block text-sm text-gray-700 font-medium">퀴즈 유형</label>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={settings.quizTypes.meaning}
+                  onChange={(e) => updateSetting("quizTypes", { ...settings.quizTypes, meaning: e.target.checked })}
+                  className={cn("w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500")}
+                />
+                <span className="text-gray-700">뜻 맞추기</span>
+              </label>
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={settings.quizTypes.spelling}
+                  onChange={(e) => updateSetting("quizTypes", { ...settings.quizTypes, spelling: e.target.checked })}
+                  className={cn("w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500")}
+                />
+                <span className="text-gray-700">철자 맞추기</span>
+              </label>
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={settings.quizTypes.listening}
+                  onChange={(e) => updateSetting("quizTypes", { ...settings.quizTypes, listening: e.target.checked })}
+                  className={cn("w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500")}
+                />
+                <span className="text-gray-700">듣기</span>
+              </label>
+            </div>
           </div>
 
-          <div className="space-y-2 pt-2 border-t border-gray-100">
-            <label className="block text-sm text-gray-700 font-medium">난이도</label>
-            <select
-              value={settings.difficulty}
-              onChange={(e) => updateSetting("difficulty", e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            <div>
+              <div className="font-medium text-gray-900">뜻 표시</div>
+              <div className="text-sm text-gray-500">학습 중 한글 뜻 표시</div>
+            </div>
+            <button
+              onClick={() => updateSetting("showMeaning", !settings.showMeaning)}
+              className={cn(
+                "w-12 h-7 rounded-full transition-colors relative",
+                settings.showMeaning ? "bg-indigo-600" : "bg-gray-300",
+              )}
             >
-              <option value="easy">쉬움</option>
-              <option value="medium">보통</option>
-              <option value="hard">어려움</option>
-            </select>
+              <div
+                className={cn(
+                  "absolute top-1 w-5 h-5 bg-white rounded-full transition-transform",
+                  settings.showMeaning ? "translate-x-6" : "translate-x-1",
+                )}
+              />
+            </button>
           </div>
         </div>
       </div>

@@ -1,23 +1,14 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useSettings } from "@/components/settings-provider"
 
 export default function AudioSettingsPage() {
   const router = useRouter()
-  const [settings, setSettings] = useState({
-    autoPlayAudio: false,
-    playbackSpeed: 1,
-    soundEffects: true,
-  })
-
-  const updateSetting = (key: string, value: any) => {
-    setSettings((prev) => ({ ...prev, [key]: value }))
-    console.log(`[v0] Updated ${key}:`, value)
-  }
+  const { settings, updateSetting } = useSettings()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -54,12 +45,12 @@ export default function AudioSettingsPage() {
           <div className="pt-2 border-t border-gray-100 space-y-2">
             <label className="block text-sm text-gray-700 font-medium">재생 속도</label>
             <div className="flex gap-2">
-              {[0.75, 1, 1.25].map((speed) => (
+              {[0.5, 0.75, 1, 1.25, 1.5, 2.0].map((speed) => (
                 <button
                   key={speed}
                   onClick={() => updateSetting("playbackSpeed", speed)}
                   className={cn(
-                    "flex-1 py-2 rounded-lg font-medium transition-colors",
+                    "flex-1 py-2 rounded-lg font-medium transition-colors text-sm",
                     settings.playbackSpeed === speed
                       ? "bg-indigo-100 text-indigo-600 border-2 border-indigo-600"
                       : "bg-gray-100 text-gray-600 border-2 border-transparent",

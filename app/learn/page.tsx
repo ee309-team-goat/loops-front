@@ -2,25 +2,30 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { MOCK_CARDS, FSRS_RATING } from "@/lib/api/client"
+import { MOCK_CARDS } from "@/lib/api/client"
+import { FSRS_RATING } from "@/lib/types/api"
+import { useSettings } from "@/components/settings-provider"
 import { Volume2, X, Mic, Lightbulb, Repeat } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function LearnPage() {
   const router = useRouter()
+  const { settings } = useSettings()
+
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
   const [cards, setCards] = useState(MOCK_CARDS)
   const [completedCount, setCompletedCount] = useState(0)
   const [showTutorial, setShowTutorial] = useState(true)
-  const [playbackSpeed, setPlaybackSpeed] = useState<0.75 | 1 | 1.25>(1)
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0)
   const [isGeneratingExample, setIsGeneratingExample] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [showPronunciationAnalysis, setShowPronunciationAnalysis] = useState(false)
+
+  const prevIsFlipped = useRef(false)
 
   const currentCard = cards[currentIndex]
   const progress = (currentIndex / cards.length) * 100
@@ -40,13 +45,20 @@ export default function LearnPage() {
     },
   ]
 
+  useEffect(() => {
+    if (isFlipped && !prevIsFlipped.current && settings.autoPlayAudio) {
+      // Card just flipped to back - auto play audio
+      playAudioWithSettings()
+    }
+    prevIsFlipped.current = isFlipped
+  }, [isFlipped, settings.autoPlayAudio])
+
   const handleFlip = () => {
     setIsFlipped(!isFlipped)
     if (showTutorial) setShowTutorial(false)
   }
 
   const handleRate = (rating: number) => {
-    // TODO: Send rating to API
     console.log(`[v0] Rated card ${currentCard.id} as ${rating}`)
 
     if (currentIndex < cards.length - 1) {
@@ -61,24 +73,24 @@ export default function LearnPage() {
     }
   }
 
-  const playAudio = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    // TODO: Implement actual TTS with Google Cloud TTS
-    console.log(`[v0] Playing audio for: ${currentCard.word} at ${playbackSpeed}x speed`)
-
-    // Web Speech API 사용 (실제 구현 예시)
+  const playAudioWithSettings = () => {
     if ("speechSynthesis" in window) {
       const utterance = new SpeechSynthesisUtterance(currentCard.word)
       utterance.lang = "en-US"
-      utterance.rate = playbackSpeed
+      utterance.rate = settings.playbackSpeed
       window.speechSynthesis.speak(utterance)
     }
+  }
+
+  const playAudio = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    console.log(`[v0] Playing audio for: ${currentCard.word} at ${settings.playbackSpeed}x speed`)
+    playAudioWithSettings()
   }
 
   const regenerateExample = (e: React.MouseEvent) => {
     e.stopPropagation()
     setIsGeneratingExample(true)
-    // TODO: Call AI API to generate new example
     setTimeout(() => {
       setCurrentExampleIndex((prev) => (prev + 1) % mockExamples.length)
       setIsGeneratingExample(false)
@@ -91,10 +103,8 @@ export default function LearnPage() {
     setIsRecording(!isRecording)
 
     if (!isRecording) {
-      // TODO: Start recording with Web Speech API / MediaRecorder
       console.log("[v0] Started recording pronunciation")
 
-      // Simulate recording and analysis
       setTimeout(() => {
         setIsRecording(false)
         setShowPronunciationAnalysis(true)
@@ -164,23 +174,9 @@ export default function LearnPage() {
               </div>
 
               <div className="flex gap-1 text-xs">
-                {([0.75, 1, 1.25] as const).map((speed) => (
-                  <button
-                    key={speed}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setPlaybackSpeed(speed)
-                    }}
-                    className={cn(
-                      "px-3 py-1 rounded-full transition-colors",
-                      playbackSpeed === speed
-                        ? "bg-indigo-100 text-indigo-600 font-medium"
-                        : "bg-gray-100 text-gray-500 hover:bg-gray-200",
-                    )}
-                  >
-                    {speed}x
-                  </button>
-                ))}
+                <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-600 font-medium">
+                  {settings.playbackSpeed}x
+                </span>
               </div>
 
               <div className="w-12 h-1 bg-gray-100 rounded-full" />

@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { SettingsProvider } from "@/components/settings-provider"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -45,7 +46,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-gray-900`}>
-        {children}
+        <SettingsProvider>{children}</SettingsProvider>
         <Analytics />
       </body>
     </html>

@@ -1,25 +1,14 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useSettings } from "@/components/settings-provider"
 
 export default function NotificationsSettingsPage() {
   const router = useRouter()
-  const [settings, setSettings] = useState({
-    notificationsEnabled: true,
-    notificationTime: "09:00",
-    reviewReminder: true,
-    leagueAlerts: true,
-    studyReport: true,
-  })
-
-  const updateSetting = (key: string, value: any) => {
-    setSettings((prev) => ({ ...prev, [key]: value }))
-    console.log(`[v0] Updated ${key}:`, value)
-  }
+  const { settings, updateSetting } = useSettings()
 
   return (
     <div className="min-h-screen bg-gray-50">

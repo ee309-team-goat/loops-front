@@ -24,13 +24,6 @@ export async function fetchClient<T>(endpoint: string, options: RequestInit = {}
   return response.json()
 }
 
-export const FSRS_RATING = {
-  AGAIN: 1,
-  HARD: 2,
-  GOOD: 3,
-  EASY: 4,
-} as const
-
 // Mock Data for Development (백엔드가 없을 때 사용)
 export const MOCK_CARDS: any[] = [
   {
