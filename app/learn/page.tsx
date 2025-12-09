@@ -279,6 +279,7 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
     const otherDefinitions = cards
       .filter((_, i) => i !== currentIndex)
       .map((c) => c.definition)
+      .filter((def) => def !== correctAnswer) // exclude correct answer
       .filter((def, idx, arr) => arr.indexOf(def) === idx) // Remove duplicates
 
     // Shuffle and take up to 3 incorrect answers
