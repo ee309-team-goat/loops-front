@@ -29,13 +29,12 @@ export function StudyModal({
   currentProgress = 0,
 }: StudyModalProps) {
   const router = useRouter()
-  const { courseType, customSelectedDeckIds, targetWordCount, setTargetWordCount } = useCourseStore()
+  const { courseType } = useCourseStore()
   const [additionalCount, setAdditionalCount] = useState(10)
 
   if (!isOpen) return null
 
   const courseLabel = courseType === "integrated" ? "통합 코스" : "커스텀 코스"
-  const hasCustomDecks = customSelectedDeckIds.length > 0
   const isCompleted = currentProgress >= totalTarget
 
   const handleChangeCourse = () => {

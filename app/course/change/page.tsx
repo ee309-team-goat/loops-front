@@ -27,7 +27,7 @@ export default function CourseChangePage() {
   }
 
   const handleSelectDecks = () => {
-    router.push("/decks/select")
+    router.push("/course/decks")
   }
 
   const hasSelectedDecks = customSelectedDeckIds.length > 0
