@@ -66,6 +66,9 @@ export function DeckSelector() {
     } catch {
       setError("서버 연결에 실패했습니다. 다시 시도해주세요.")
       setDecks([])
+      const emptyState: SelectionState = { selectAll: false, selectedIds: new Set() }
+      setSelection(emptyState)
+      setLastSaved(emptyState)
     } finally {
       setLoading(false)
     }
