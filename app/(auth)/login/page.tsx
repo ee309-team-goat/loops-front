@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { getAuthFriendlyError, shouldSuggestRegister } from "@/lib/auth/error-messages"
+import { saveAuth } from "@/lib/auth/storage"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -47,6 +48,19 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleDevSkip = () => {
+    saveAuth({
+      access_token: "dev-skip-token",
+      refresh_token: "dev-skip-refresh",
+      user: {
+        id: "dev-user",
+        email: "dev@example.com",
+        username: "준호",
+      },
+    })
+    router.push("/dashboard")
   }
 
   return (
@@ -141,7 +155,7 @@ export default function LoginPage() {
           variant="ghost"
           className="w-full py-6 text-gray-400 hover:text-gray-600"
           type="button"
-          onClick={() => router.push("/dashboard")}
+          onClick={handleDevSkip}
         >
           [DEV] Skip
         </Button>
