@@ -48,12 +48,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const syncFromStorage = useCallback(() => {
     const auth = loadAuth()
+    console.log("[v0] syncFromStorage called, auth:", auth)
+    console.log("[v0] access_token:", auth?.access_token)
     setAccessToken(auth?.access_token)
     setUser((auth?.user as User) ?? null)
   }, [])
 
   // On mount, load auth from storage and listen for auth changes
   useEffect(() => {
+    console.log("[v0] AuthProvider mounted, syncing from storage")
     syncFromStorage()
     setIsLoading(false)
 

@@ -14,8 +14,12 @@ export function AuthRequired({ children }: AuthRequiredProps) {
   const router = useRouter()
   const { isAuthed, isLoading } = useAuth()
 
+  console.log("[v0] AuthRequired - isLoading:", isLoading, "isAuthed:", isAuthed)
+
   useEffect(() => {
+    console.log("[v0] AuthRequired useEffect - isLoading:", isLoading, "isAuthed:", isAuthed)
     if (!isLoading && !isAuthed) {
+      console.log("[v0] Redirecting to /login")
       router.replace("/login")
     }
   }, [isAuthed, isLoading, router])

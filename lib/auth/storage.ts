@@ -25,6 +25,7 @@ export function loadAuth(): AuthPayload | null {
 
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+    console.log("[v0] loadAuth - raw from localStorage:", raw)
     if (!raw) return null
 
     const parsed = JSON.parse(raw)
@@ -42,6 +43,7 @@ export function loadAuth(): AuthPayload | null {
       refresh_token: payload.refresh_token,
     }
 
+    console.log("[v0] loadAuth - returning payload:", payload)
     return Object.keys(payload).length > 0 ? payload : null
   } catch {
     return null
@@ -51,6 +53,8 @@ export function loadAuth(): AuthPayload | null {
 export function saveAuth(payload: AuthPayload): void {
   if (typeof window === "undefined") return
 
+  console.log("[v0] saveAuth called with:", payload)
+
   // Update cache
   tokenCache = {
     access_token: payload.access_token,
@@ -58,6 +62,7 @@ export function saveAuth(payload: AuthPayload): void {
   }
 
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload))
+  console.log("[v0] saveAuth - saved to localStorage, emitting event")
   emitAuthChanged()
 }
 
