@@ -10,13 +10,7 @@ import { fetchCurrentUser, updateUserProfile, deleteUserAccount, type UserRead }
 import { logout, isLoggedIn, isDevMode as checkDevMode } from "@/lib/api/auth"
 import { useAuth } from "@/contexts/auth-context"
 
-type AuthProvider = "guest" | "email" | "google" | "kakao" | "naver" | "apple" | "facebook" | "other"
-
-type AuthInfo = {
-  type: AuthProvider
-  email: string
-  loginMethod: string
-}
+type AuthProvider = "guest" | "email" | "email_password" | "google" | "kakao" | "naver" | "apple" | "facebook" | "other"
 
 const PROVIDER_STYLES: Record<
   string,
@@ -40,6 +34,12 @@ const PROVIDER_STYLES: Record<
     bgColor: "bg-blue-100",
     textColor: "text-blue-900",
   },
+  email_password: {
+    icon: <Mail className="w-6 h-6 text-blue-600" />,
+    label: "이메일 계정",
+    bgColor: "bg-blue-100",
+    textColor: "text-blue-900",
+  },
   google: {
     icon: (
       <svg className="w-6 h-6" viewBox="0 0 24 24">
@@ -56,7 +56,7 @@ const PROVIDER_STYLES: Record<
           fill="#FBBC05"
         />
         <path
-          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
+          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           fill="#EA4335"
         />
       </svg>
@@ -115,6 +115,14 @@ function getProviderStyle(type: AuthProvider) {
   return PROVIDER_STYLES[type] || DEFAULT_PROVIDER_STYLE
 }
 
+function normalizeProvider(provider: string | undefined): AuthProvider {
+  if (!provider) return "guest"
+  // email_password -> email_password 그대로 사용 (스타일에 추가함)
+  if (provider === "email_password" || provider === "email") return provider as AuthProvider
+  if (PROVIDER_STYLES[provider]) return provider as AuthProvider
+  return "other"
+}
+
 export default function AccountPage() {
   const router = useRouter()
   const { user: authUser, isDevMode: contextDevMode, logout: authLogout, updateUser, refreshUser } = useAuth()
@@ -131,7 +139,21 @@ export default function AccountPage() {
   const [isDevMode, setIsDevMode] = useState(contextDevMode)
 
   useEffect(() => {
+    if (authUser) {
+      setUser(authUser)
+      setIsLoading(false)
+      setIsDevMode(contextDevMode)
+      setLearningPurpose(authUser.learning_purpose || localStorage.getItem("learningPurpose") || "미설정")
+    }
+  }, [authUser, contextDevMode])
+
+  useEffect(() => {
     async function loadUserData() {
+      // AuthContext에서 이미 유저 정보가 있으면 스킵
+      if (authUser) {
+        return
+      }
+
       setIsLoading(true)
       setError(null)
 
@@ -173,7 +195,7 @@ export default function AccountPage() {
           setIsLoading(false)
           return
         } catch (err) {
-          console.error("[v0] Failed to fetch user:", err)
+          console.error("Failed to fetch user:", err)
           // 401 에러 시 로그인 페이지로 이동
           if (err instanceof Error && err.message.includes("세션이 만료")) {
             setError("세션이 만료되었습니다. 다시 로그인해주세요.")
@@ -190,7 +212,7 @@ export default function AccountPage() {
     }
 
     loadUserData()
-  }, [updateUser])
+  }, [authUser, updateUser])
 
   const accountCode = user ? `LOOPS-${String(user.id).padStart(8, "0")}` : ""
 
@@ -205,7 +227,7 @@ export default function AccountPage() {
       logout()
       authLogout()
     } catch (err) {
-      console.error("[v0] Logout error:", err)
+      console.error("Logout error:", err)
       // 에러가 나도 로컬 정리는 진행
       logout()
     }
@@ -220,7 +242,7 @@ export default function AccountPage() {
       localStorage.clear()
       router.push("/")
     } catch (err) {
-      console.error("[v0] Delete account error:", err)
+      console.error("Delete account error:", err)
       alert("계정 삭제에 실패했습니다. 다시 시도해주세요.")
     }
   }
@@ -238,7 +260,7 @@ export default function AccountPage() {
         setUser(updatedUser)
         updateUser(updatedUser)
       } catch (err) {
-        console.error("[v0] Failed to save learning purpose:", err)
+        console.error("Failed to save learning purpose:", err)
         // 실패해도 로컬에는 저장됨
       }
     }
@@ -248,7 +270,7 @@ export default function AccountPage() {
 
   const purposes = ["취업/시험 준비", "업무/실무 활용", "여행/취미", "기타"]
 
-  const providerType = (user?.provider as AuthProvider) || (isDevMode ? "guest" : "email")
+  const providerType = normalizeProvider(user?.provider)
   const providerStyle = getProviderStyle(providerType)
 
   if (isLoading) {

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import type { UserRead } from "@/lib/api/user"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || ""
-console.log("[v0] AuthContext - API_BASE_URL:", API_BASE_URL)
 
 interface AuthContextType {
   user: UserRead | null
@@ -30,16 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 초기 인증 상태 로드
   useEffect(() => {
     const loadAuthState = () => {
-      console.log("[v0] Loading auth state...")
       const accessToken = localStorage.getItem("access_token")
       const storedUser = localStorage.getItem("user")
       const devMode = localStorage.getItem("dev_mode") === "true"
-
-      console.log("[v0] Auth state:", {
-        hasAccessToken: !!accessToken,
-        hasStoredUser: !!storedUser,
-        devMode,
-      })
 
       if (devMode) {
         setIsDevMode(true)
@@ -105,21 +97,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     const accessToken = localStorage.getItem("access_token")
     if (!accessToken) {
-      console.log("[v0] No access token, skipping refresh")
       return
     }
 
     try {
-      console.log("[v0] Refreshing user from:", `${API_BASE_URL}/api/v1/users/me`)
-
       const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
       })
-
-      console.log("[v0] Refresh user response:", response.status)
 
       if (response.ok) {
         const userData: UserRead = await response.json()
@@ -149,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error("[v0] Failed to refresh user:", error)
+      console.error("Failed to refresh user:", error)
     }
   }, [logout])
 
