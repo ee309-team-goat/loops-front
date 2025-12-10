@@ -1,17 +1,9 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { getDecks, getSelectedDecks, updateSelectedDecks, type Deck, type SelectedDecksState } from "@/lib/api/decks"
+import { getDecks, getSelectedDecks, updateSelectedDecks, type Deck } from "@/lib/api/decks"
 import { Button } from "@/components/ui/button"
-import { Check, AlertCircle, X } from "lucide-react"
-
-const SAMPLE_DECKS: Deck[] = [
-  { id: 1, name: "기본 단어장" },
-  { id: 2, name: "TOEIC" },
-  { id: 3, name: "CS 영어" },
-]
-
-const DEMO_STORAGE_KEY = "loops:demo:selected-decks"
+import { Check, AlertCircle, X, RefreshCw } from "lucide-react"
 
 interface SelectionState {
   selectAll: boolean
@@ -21,18 +13,15 @@ interface SelectionState {
 export function DeckSelector() {
   const [decks, setDecks] = useState<Deck[]>([])
   const [loading, setLoading] = useState(true)
-  const [demoMode, setDemoMode] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  // Current selection state
   const [selection, setSelection] = useState<SelectionState>({
     selectAll: false,
     selectedIds: new Set(),
   })
 
-  // Last saved state (for rollback)
   const [lastSaved, setLastSaved] = useState<SelectionState>({
     selectAll: false,
     selectedIds: new Set(),
@@ -53,75 +42,49 @@ export function DeckSelector() {
     [selection.selectAll, selection.selectedIds],
   )
 
-  // Set indeterminate state on checkbox
   useEffect(() => {
     if (selectAllRef.current) {
       selectAllRef.current.indeterminate = isIndeterminate
     }
   }, [isIndeterminate])
 
-  // Load decks and selection
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true)
-      setError(null)
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
 
-      try {
-        // Try live API first
-        const [loadedDecks, selectedState] = await Promise.all([getDecks(), getSelectedDecks()])
+    try {
+      const [loadedDecks, selectedState] = await Promise.all([getDecks(), getSelectedDecks()])
 
-        setDecks(loadedDecks)
-        setDemoMode(false)
+      setDecks(loadedDecks)
 
-        const initialSelection: SelectionState = {
-          selectAll: selectedState.select_all,
-          selectedIds: new Set(selectedState.deck_ids),
-        }
-        setSelection(initialSelection)
-        setLastSaved(initialSelection)
-      } catch {
-        // Enter demo mode on any failure
-        setDemoMode(true)
-        setDecks(SAMPLE_DECKS)
-
-        // Load from localStorage
-        try {
-          const stored = localStorage.getItem(DEMO_STORAGE_KEY)
-          if (stored) {
-            const parsed = JSON.parse(stored) as SelectedDecksState
-            const demoSelection: SelectionState = {
-              selectAll: parsed.select_all ?? false,
-              selectedIds: new Set(parsed.deck_ids ?? []),
-            }
-            setSelection(demoSelection)
-            setLastSaved(demoSelection)
-          }
-        } catch {
-          // Ignore localStorage errors
-        }
-      } finally {
-        setLoading(false)
+      const initialSelection: SelectionState = {
+        selectAll: selectedState.select_all,
+        selectedIds: new Set(selectedState.deck_ids),
       }
+      setSelection(initialSelection)
+      setLastSaved(initialSelection)
+    } catch {
+      setError("서버 연결에 실패했습니다. 다시 시도해주세요.")
+      setDecks([])
+    } finally {
+      setLoading(false)
     }
-
-    loadData()
   }, [])
 
-  // Handle "전체 선택" toggle
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
   const handleSelectAllChange = () => {
     if (isAllChecked) {
-      // Uncheck all
       setSelection({ selectAll: false, selectedIds: new Set() })
     } else {
-      // Check all
       setSelection({ selectAll: true, selectedIds: new Set() })
     }
   }
 
-  // Handle individual deck toggle
   const handleDeckToggle = (id: number) => {
     if (selection.selectAll) {
-      // Switch to partial mode: all except this one
       const newIds = new Set(allIds.filter((deckId) => deckId !== id))
       setSelection({ selectAll: false, selectedIds: newIds })
     } else {
@@ -135,36 +98,28 @@ export function DeckSelector() {
     }
   }
 
-  // Save selection
   const handleSave = async () => {
     setSaving(true)
     setError(null)
     setSuccess(false)
 
     try {
-      if (demoMode) {
-        // Save to localStorage
-        const payload: SelectedDecksState = selection.selectAll
-          ? { select_all: true, deck_ids: [] }
-          : { select_all: false, deck_ids: Array.from(selection.selectedIds) }
-        localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(payload))
+      const isAll = selection.selectAll || (decks.length > 0 && selection.selectedIds.size === decks.length)
+
+      if (isAll) {
+        await updateSelectedDecks({ select_all: true })
+        // Update lastSaved with normalized state
+        setLastSaved({ selectAll: true, selectedIds: new Set() })
+        // Also normalize current selection state
+        setSelection({ selectAll: true, selectedIds: new Set() })
       } else {
-        // Save to API
-        await updateSelectedDecks(
-          selection.selectAll
-            ? { select_all: true }
-            : { select_all: false, deck_ids: Array.from(selection.selectedIds) },
-        )
+        await updateSelectedDecks({ select_all: false, deck_ids: Array.from(selection.selectedIds) })
+        setLastSaved({ selectAll: false, selectedIds: new Set(selection.selectedIds) })
       }
 
-      // Update lastSaved
-      setLastSaved({ ...selection, selectedIds: new Set(selection.selectedIds) })
       setSuccess(true)
-
-      // Clear success after 2s
       setTimeout(() => setSuccess(false), 2000)
     } catch (err) {
-      // Rollback to lastSaved
       setSelection({ ...lastSaved, selectedIds: new Set(lastSaved.selectedIds) })
       setError(err instanceof Error ? err.message : "저장에 실패했습니다.")
     } finally {
@@ -176,28 +131,27 @@ export function DeckSelector() {
 
   return (
     <div className="space-y-4">
-      {/* Demo mode banner */}
-      {demoMode && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
-          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-yellow-700">데모 모드: 서버 연결 실패로 샘플 덱을 표시합니다.</div>
-        </div>
-      )}
-
-      {/* Error banner */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-            <span className="text-sm text-red-700">{error}</span>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <span className="text-sm text-red-700">{error}</span>
+            </div>
+            <button onClick={() => setError(null)}>
+              <X className="w-4 h-4 text-red-600" />
+            </button>
           </div>
-          <button onClick={() => setError(null)}>
-            <X className="w-4 h-4 text-red-600" />
-          </button>
+          {/* Retry button when load failed */}
+          {decks.length === 0 && !loading && (
+            <Button variant="outline" size="sm" onClick={loadData} className="mt-2 w-full bg-transparent">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              다시 시도
+            </Button>
+          )}
         </div>
       )}
 
-      {/* Success banner */}
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
           <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
@@ -206,7 +160,6 @@ export function DeckSelector() {
       )}
 
       <div className="bg-white rounded-2xl overflow-hidden">
-        {/* Header with select all */}
         <div className="px-4 py-3 border-b border-gray-100">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
@@ -214,7 +167,8 @@ export function DeckSelector() {
               type="checkbox"
               checked={isAllChecked}
               onChange={handleSelectAllChange}
-              className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              disabled={loading || decks.length === 0}
+              className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
             />
             <div className="flex-1">
               <span className="font-medium text-gray-900">전체 선택</span>
@@ -223,7 +177,6 @@ export function DeckSelector() {
           </label>
         </div>
 
-        {/* Loading state */}
         {loading && (
           <div className="divide-y divide-gray-100">
             {[1, 2, 3].map((i) => (
@@ -235,10 +188,10 @@ export function DeckSelector() {
           </div>
         )}
 
-        {/* Empty state */}
-        {!loading && decks.length === 0 && <div className="px-4 py-8 text-center text-gray-500">덱이 없습니다.</div>}
+        {!loading && decks.length === 0 && !error && (
+          <div className="px-4 py-8 text-center text-gray-500">덱이 없습니다.</div>
+        )}
 
-        {/* Deck list */}
         {!loading && decks.length > 0 && (
           <div className="divide-y divide-gray-100">
             {decks.map((deck) => (
@@ -256,10 +209,9 @@ export function DeckSelector() {
         )}
       </div>
 
-      {/* Save button */}
       <Button
         onClick={handleSave}
-        disabled={saving || loading}
+        disabled={saving || loading || decks.length === 0}
         className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
       >
         {saving ? "저장 중..." : "저장"}
