@@ -5,11 +5,14 @@ import type React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { MOCK_CARDS, FSRS_RATING } from "@/lib/api/client"
 import { startStudySession, completeStudySession, isLoggedIn, type SessionCard } from "@/lib/api/study"
 import { getUserConfig } from "@/lib/api/user-config"
-import { Volume2, X, Mic, Lightbulb, Repeat, Loader2 } from "lucide-react"
+import { Volume2, X, Mic, Lightbulb, Repeat, Loader2, Check, XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+type QuizMode = "flashcard" | "multiple-choice" | "typing"
 
 type AudioSettings = {
   autoPlayAudio: boolean
@@ -30,6 +33,27 @@ function convertSessionCard(card: SessionCard) {
   }
 }
 
+function generateMultipleChoiceOptions(correctAnswer: string, allCards: ReturnType<typeof convertSessionCard>[]) {
+  const options = [correctAnswer]
+  const otherCards = allCards.filter((c) => c.definition !== correctAnswer)
+
+  // Shuffle and pick 3 wrong answers
+  const shuffled = [...otherCards].sort(() => Math.random() - 0.5)
+  for (let i = 0; i < Math.min(3, shuffled.length); i++) {
+    options.push(shuffled[i].definition)
+  }
+
+  // Fill remaining with generic options if needed
+  const genericOptions = ["사과", "행복", "달리다", "아름다운", "생각하다", "빠른"]
+  while (options.length < 4) {
+    const opt = genericOptions[options.length - 1]
+    if (!options.includes(opt)) options.push(opt)
+  }
+
+  // Shuffle options
+  return options.sort(() => Math.random() - 0.5)
+}
+
 export default function LearnPage() {
   const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -47,6 +71,14 @@ export default function LearnPage() {
   const [isRecording, setIsRecording] = useState(false)
   const [showPronunciationAnalysis, setShowPronunciationAnalysis] = useState(false)
 
+  const [quizModes, setQuizModes] = useState<QuizMode[]>(["flashcard"])
+  const [currentQuizMode, setCurrentQuizMode] = useState<QuizMode>("flashcard")
+  const [multipleChoiceOptions, setMultipleChoiceOptions] = useState<string[]>([])
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
+  const [typingAnswer, setTypingAnswer] = useState("")
+  const [showResult, setShowResult] = useState(false)
+  const [isCorrectAnswer, setIsCorrectAnswer] = useState(false)
+
   const [audioSettings, setAudioSettings] = useState<AudioSettings>({
     autoPlayAudio: false,
     playbackSpeed: 1,
@@ -54,27 +86,37 @@ export default function LearnPage() {
   })
 
   useEffect(() => {
+    const vocabSettings = localStorage.getItem("vocabularySettings")
+    if (vocabSettings) {
+      try {
+        const parsed = JSON.parse(vocabSettings)
+        if (parsed.quizModes && parsed.quizModes.length > 0) {
+          setQuizModes(parsed.quizModes)
+        }
+      } catch (e) {
+        console.error("Failed to parse vocabulary settings")
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     const loadCards = async () => {
       setIsLoading(true)
       setError(null)
 
-      // Check if logged in
       if (!isLoggedIn()) {
         router.push("/login")
         return
       }
 
-      // Get daily goal from API or localStorage
       let dailyGoal = 20
       try {
         const config = await getUserConfig()
         if (config) {
           dailyGoal = config.daily_goal || 20
-          console.log("[v0] Daily goal from API:", dailyGoal)
         }
       } catch (e) {
         console.error("[v0] Failed to get user config, using default")
-        // Fallback to localStorage
         const vocabSettings = localStorage.getItem("vocabularySettings")
         if (vocabSettings) {
           try {
@@ -86,7 +128,6 @@ export default function LearnPage() {
         }
       }
 
-      // Fetch cards from API (both for logged in users and DEV/guest mode)
       try {
         const response = await startStudySession({
           new_cards_limit: Math.min(dailyGoal, 50),
@@ -101,8 +142,6 @@ export default function LearnPage() {
         }
       } catch (err) {
         console.error("[v0] Failed to start study session:", err)
-
-        console.log("[v0] Using fallback mock cards")
         setCards(
           MOCK_CARDS.slice(0, dailyGoal).map((card, i) => ({
             id: i,
@@ -122,6 +161,27 @@ export default function LearnPage() {
 
     loadCards()
   }, [router])
+
+  useEffect(() => {
+    if (cards.length > 0 && currentIndex < cards.length) {
+      // Pick random quiz mode from selected modes
+      const randomMode = quizModes[Math.floor(Math.random() * quizModes.length)]
+      setCurrentQuizMode(randomMode)
+
+      // Reset states
+      setIsFlipped(false)
+      setSelectedAnswer(null)
+      setTypingAnswer("")
+      setShowResult(false)
+      setIsCorrectAnswer(false)
+
+      // Generate multiple choice options if needed
+      if (randomMode === "multiple-choice") {
+        const options = generateMultipleChoiceOptions(cards[currentIndex].definition, cards)
+        setMultipleChoiceOptions(options)
+      }
+    }
+  }, [currentIndex, cards, quizModes])
 
   const currentCard = cards[currentIndex]
   const progress = cards.length > 0 ? (currentIndex / cards.length) * 100 : 0
@@ -214,6 +274,39 @@ export default function LearnPage() {
     if (showTutorial) setShowTutorial(false)
   }
 
+  const handleMultipleChoiceSelect = (answer: string) => {
+    if (showResult) return
+
+    setSelectedAnswer(answer)
+    const isCorrect = answer === currentCard.definition
+    setIsCorrectAnswer(isCorrect)
+    setShowResult(true)
+
+    if (isCorrect) {
+      playSoundEffect("correct")
+    } else {
+      playSoundEffect("incorrect")
+    }
+  }
+
+  const handleTypingSubmit = () => {
+    if (showResult || !typingAnswer.trim()) return
+
+    // Normalize and compare (case-insensitive, trim whitespace)
+    const normalizedAnswer = typingAnswer.trim().toLowerCase()
+    const normalizedCorrect = currentCard.definition.trim().toLowerCase()
+    const isCorrect = normalizedAnswer === normalizedCorrect
+
+    setIsCorrectAnswer(isCorrect)
+    setShowResult(true)
+
+    if (isCorrect) {
+      playSoundEffect("correct")
+    } else {
+      playSoundEffect("incorrect")
+    }
+  }
+
   const handleRate = async (rating: number) => {
     const isCorrect = rating === FSRS_RATING.GOOD || rating === FSRS_RATING.EASY
 
@@ -233,7 +326,35 @@ export default function LearnPage() {
         setCurrentExampleIndex(0)
       }, 300)
     } else {
-      // Session complete - send results to API
+      if (sessionId) {
+        try {
+          await completeStudySession({
+            cards_studied: completedCount + 1,
+            cards_correct: correctCount + (isCorrect ? 1 : 0),
+          })
+        } catch (err) {
+          console.error("[v0] Failed to complete session:", err)
+        }
+      }
+      router.push("/dashboard")
+    }
+  }
+
+  const handleNextCard = async () => {
+    const isCorrect = isCorrectAnswer
+    const rating = isCorrect ? FSRS_RATING.GOOD : FSRS_RATING.AGAIN
+
+    if (isCorrect) {
+      setCorrectCount((prev) => prev + 1)
+    }
+    setCompletedCount((prev) => prev + 1)
+
+    if (currentIndex < cards.length - 1) {
+      setTimeout(() => {
+        setCurrentIndex((prev) => prev + 1)
+        setCurrentExampleIndex(0)
+      }, 300)
+    } else {
       if (sessionId) {
         try {
           await completeStudySession({
@@ -309,54 +430,16 @@ export default function LearnPage() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <div className="bg-card px-4 py-3 flex items-center justify-between shadow-sm z-10">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
-          <X className="w-5 h-5 text-muted-foreground" />
-        </Button>
-        <div className="flex-1 mx-4">
-          <div className="flex justify-between text-xs text-muted-foreground mb-1">
-            <span>오늘의 학습</span>
-            <span>
-              {currentIndex + 1} / {cards.length}
-            </span>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-        <div className="w-10" />
-      </div>
-
-      {/* Card Area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 perspective-1000">
-        <div
-          className={cn(
-            "relative w-full max-w-sm aspect-[3/4] transition-all duration-500 transform-style-3d cursor-pointer",
-            isFlipped ? "rotate-y-180" : "",
-          )}
-          onClick={handleFlip}
-        >
-          {/* Front */}
-          <div className="absolute inset-0 bg-card rounded-3xl shadow-xl flex flex-col items-center justify-center p-8 backface-hidden border border-border">
-            <span className="text-4xl font-bold text-foreground mb-8">{currentCard.word}</span>
-
-            {showTutorial && (
-              <div className="absolute bottom-8 animate-bounce text-muted-foreground text-sm flex flex-col items-center">
-                <span>👆</span>
-                <span>탭해서 뒤집기</span>
-              </div>
-            )}
-          </div>
-
-          {/* Back */}
-          <div className="absolute inset-0 bg-card rounded-3xl shadow-xl flex flex-col p-6 backface-hidden rotate-y-180 border border-border overflow-y-auto">
-            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-center gap-2">
-                  <h2 className="text-3xl font-bold text-foreground">{currentCard.word}</h2>
+  const renderQuizContent = () => {
+    switch (currentQuizMode) {
+      case "multiple-choice":
+        return (
+          <div className="flex-1 flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-sm space-y-6">
+              {/* Word display */}
+              <div className="bg-card rounded-3xl shadow-xl p-8 text-center border border-border">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-3xl font-bold text-foreground">{currentCard.word}</span>
                   <button
                     onClick={playAudio}
                     className="p-2 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors"
@@ -365,101 +448,268 @@ export default function LearnPage() {
                   </button>
                 </div>
                 <p className="text-muted-foreground font-mono text-sm">{currentCard.pronunciation}</p>
-                {currentCard.partOfSpeech && (
-                  <p className="text-xs text-muted-foreground">({currentCard.partOfSpeech})</p>
-                )}
               </div>
 
-              <div className="flex gap-1 text-xs">
-                {([0.75, 1, 1.25] as const).map((speed) => (
-                  <button
-                    key={speed}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setPlaybackSpeed(speed)
-                    }}
+              {/* Options */}
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground text-center">올바른 뜻을 선택하세요</p>
+                {multipleChoiceOptions.map((option, index) => {
+                  const isSelected = selectedAnswer === option
+                  const isCorrect = option === currentCard.definition
+                  const showCorrectHighlight = showResult && isCorrect
+                  const showWrongHighlight = showResult && isSelected && !isCorrect
+
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleMultipleChoiceSelect(option)}
+                      disabled={showResult}
+                      className={cn(
+                        "w-full p-4 rounded-xl border-2 text-left font-medium transition-all",
+                        !showResult && "hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950",
+                        !showResult && !isSelected && "border-gray-200 dark:border-gray-700 bg-card",
+                        showCorrectHighlight &&
+                          "border-green-500 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300",
+                        showWrongHighlight && "border-red-500 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300",
+                        isSelected && !showResult && "border-indigo-500 bg-indigo-50 dark:bg-indigo-950",
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{option}</span>
+                        {showCorrectHighlight && <Check className="w-5 h-5 text-green-600" />}
+                        {showWrongHighlight && <XIcon className="w-5 h-5 text-red-600" />}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Result and Next button */}
+              {showResult && (
+                <div className="space-y-4">
+                  <div
                     className={cn(
-                      "px-3 py-1 rounded-full transition-colors",
-                      playbackSpeed === speed
-                        ? "bg-indigo-100 dark:bg-indigo-900 text-indigo-600 font-medium"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80",
+                      "p-4 rounded-xl text-center font-medium",
+                      isCorrectAnswer
+                        ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                        : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300",
                     )}
                   >
-                    {speed}x
-                  </button>
-                ))}
-              </div>
-
-              <div className="w-12 h-1 bg-muted rounded-full" />
-
-              <div className="space-y-1">
-                <p className="text-2xl font-bold text-indigo-600">{currentCard.definition}</p>
-                {currentCard.definitionEn && (
-                  <p className="text-sm text-muted-foreground">{currentCard.definitionEn}</p>
-                )}
-              </div>
-
-              <div className="bg-muted p-4 rounded-xl w-full text-left space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">예문 {currentExampleIndex + 1}</span>
-                  <button
-                    onClick={regenerateExample}
-                    disabled={isGeneratingExample}
-                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
-                  >
-                    <Repeat className={cn("w-3 h-3", isGeneratingExample && "animate-spin")} />
-                    {isGeneratingExample ? "생성 중..." : "새 예문"}
-                  </button>
-                </div>
-                <p className="text-foreground font-medium">"{currentExample.sentence}"</p>
-                <p className="text-muted-foreground text-sm">{currentExample.translation}</p>
-              </div>
-
-              <button
-                onClick={toggleRecording}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-full transition-all",
-                  isRecording
-                    ? "bg-red-100 dark:bg-red-900 text-red-600 animate-pulse"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80",
-                )}
-              >
-                <Mic className="w-4 h-4" />
-                <span className="text-sm font-medium">{isRecording ? "녹음 중..." : "발음 연습"}</span>
-              </button>
-
-              {showPronunciationAnalysis && (
-                <div className="bg-indigo-50 dark:bg-indigo-950 p-4 rounded-xl w-full text-left space-y-2 border border-indigo-100 dark:border-indigo-800">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-indigo-900 dark:text-indigo-100">발음 분석</span>
-                    <span className="text-2xl font-bold text-indigo-600">85/100</span>
+                    {isCorrectAnswer ? "정답입니다!" : `오답입니다. 정답: ${currentCard.definition}`}
                   </div>
-                  <div className="space-y-1">
-                    <div className="text-xs text-indigo-700 dark:text-indigo-300">
-                      <Lightbulb className="w-3 h-3 inline mr-1" />
-                      'v' 발음: 아랫입술을 윗니에 대고 소리내세요
-                    </div>
-                    <div className="text-xs text-indigo-700 dark:text-indigo-300">
-                      강세: in-no-<strong>VA</strong>-tion (3음절 강조)
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowPronunciationAnalysis(false)
-                    }}
-                    className="text-xs text-indigo-600 hover:underline"
-                  >
-                    닫기
-                  </button>
+                  <Button className="w-full py-6 text-lg font-medium" onClick={handleNextCard}>
+                    {currentIndex < cards.length - 1 ? "다음 단어" : "학습 완료"}
+                  </Button>
                 </div>
               )}
             </div>
           </div>
-        </div>
-      </div>
+        )
 
-      {/* Controls */}
+      case "typing":
+        return (
+          <div className="flex-1 flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-sm space-y-6">
+              {/* Word display */}
+              <div className="bg-card rounded-3xl shadow-xl p-8 text-center border border-border">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-3xl font-bold text-foreground">{currentCard.word}</span>
+                  <button
+                    onClick={playAudio}
+                    className="p-2 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors"
+                  >
+                    <Volume2 className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-muted-foreground font-mono text-sm">{currentCard.pronunciation}</p>
+              </div>
+
+              {/* Typing input */}
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground text-center">뜻을 입력하세요</p>
+                <div className="flex gap-2">
+                  <Input
+                    value={typingAnswer}
+                    onChange={(e) => setTypingAnswer(e.target.value)}
+                    placeholder="한글로 뜻을 입력하세요"
+                    disabled={showResult}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleTypingSubmit()
+                    }}
+                    className="flex-1"
+                  />
+                  {!showResult && (
+                    <Button onClick={handleTypingSubmit} disabled={!typingAnswer.trim()}>
+                      확인
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Result and Next button */}
+              {showResult && (
+                <div className="space-y-4">
+                  <div
+                    className={cn(
+                      "p-4 rounded-xl text-center font-medium",
+                      isCorrectAnswer
+                        ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                        : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300",
+                    )}
+                  >
+                    {isCorrectAnswer ? "정답입니다!" : `오답입니다. 정답: ${currentCard.definition}`}
+                  </div>
+                  <Button className="w-full py-6 text-lg font-medium" onClick={handleNextCard}>
+                    {currentIndex < cards.length - 1 ? "다음 단어" : "학습 완료"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+
+      case "flashcard":
+      default:
+        return (
+          <div className="flex-1 flex flex-col items-center justify-center p-4 perspective-1000">
+            <div
+              className={cn(
+                "relative w-full max-w-sm aspect-[3/4] transition-all duration-500 transform-style-3d cursor-pointer",
+                isFlipped ? "rotate-y-180" : "",
+              )}
+              onClick={handleFlip}
+            >
+              {/* Front */}
+              <div className="absolute inset-0 bg-card rounded-3xl shadow-xl flex flex-col items-center justify-center p-8 backface-hidden border border-border">
+                <span className="text-4xl font-bold text-foreground mb-8">{currentCard.word}</span>
+
+                {showTutorial && (
+                  <div className="absolute bottom-8 animate-bounce text-muted-foreground text-sm flex flex-col items-center">
+                    <span>👆</span>
+                    <span>탭해서 뒤집기</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Back */}
+              <div className="absolute inset-0 bg-card rounded-3xl shadow-xl flex flex-col p-6 backface-hidden rotate-y-180 border border-border overflow-y-auto">
+                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <h2 className="text-3xl font-bold text-foreground">{currentCard.word}</h2>
+                      <button
+                        onClick={playAudio}
+                        className="p-2 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors"
+                      >
+                        <Volume2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <p className="text-muted-foreground font-mono text-sm">{currentCard.pronunciation}</p>
+                    {currentCard.partOfSpeech && (
+                      <p className="text-xs text-muted-foreground">({currentCard.partOfSpeech})</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-1 text-xs">
+                    {([0.75, 1, 1.25] as const).map((speed) => (
+                      <button
+                        key={speed}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setPlaybackSpeed(speed)
+                        }}
+                        className={cn(
+                          "px-3 py-1 rounded-full transition-colors",
+                          playbackSpeed === speed
+                            ? "bg-indigo-100 dark:bg-indigo-900 text-indigo-600 font-medium"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        {speed}x
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="w-12 h-1 bg-muted rounded-full" />
+
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold text-indigo-600">{currentCard.definition}</p>
+                    {currentCard.definitionEn && (
+                      <p className="text-sm text-muted-foreground">{currentCard.definitionEn}</p>
+                    )}
+                  </div>
+
+                  <div className="bg-muted p-4 rounded-xl w-full text-left space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground font-medium">예문 {currentExampleIndex + 1}</span>
+                      <button
+                        onClick={regenerateExample}
+                        disabled={isGeneratingExample}
+                        className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
+                      >
+                        <Repeat className={cn("w-3 h-3", isGeneratingExample && "animate-spin")} />
+                        {isGeneratingExample ? "생성 중..." : "새 예문"}
+                      </button>
+                    </div>
+                    <p className="text-foreground font-medium">"{currentExample.sentence}"</p>
+                    <p className="text-muted-foreground text-sm">{currentExample.translation}</p>
+                  </div>
+
+                  <button
+                    onClick={toggleRecording}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full transition-all",
+                      isRecording
+                        ? "bg-red-100 dark:bg-red-900 text-red-600 animate-pulse"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80",
+                    )}
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span className="text-sm font-medium">{isRecording ? "녹음 중..." : "발음 연습"}</span>
+                  </button>
+
+                  {showPronunciationAnalysis && (
+                    <div className="bg-indigo-50 dark:bg-indigo-950 p-4 rounded-xl w-full text-left space-y-2 border border-indigo-100 dark:border-indigo-800">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-indigo-900 dark:text-indigo-100">발음 분석</span>
+                        <span className="text-2xl font-bold text-indigo-600">85/100</span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-xs text-indigo-700 dark:text-indigo-300">
+                          <Lightbulb className="w-3 h-3 inline mr-1" />
+                          'v' 발음: 아랫입술을 윗니에 대고 소리내세요
+                        </div>
+                        <div className="text-xs text-indigo-700 dark:text-indigo-300">
+                          강세: in-no-<strong>VA</strong>-tion (3음절 강조)
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowPronunciationAnalysis(false)
+                        }}
+                        className="text-xs text-indigo-600 hover:underline"
+                      >
+                        닫기
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+    }
+  }
+
+  const renderControls = () => {
+    // For multiple-choice and typing, controls are embedded in content
+    if (currentQuizMode === "multiple-choice" || currentQuizMode === "typing") {
+      return null
+    }
+
+    // Flashcard controls
+    return (
       <div className="bg-card p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         {!isFlipped ? (
           <Button className="w-full py-6 text-lg font-medium" onClick={handleFlip}>
@@ -469,7 +719,7 @@ export default function LearnPage() {
           <div className="grid grid-cols-4 gap-2">
             <div className="flex flex-col gap-1">
               <Button
-                variant="danger"
+                variant="destructive"
                 className="h-14 bg-red-100 dark:bg-red-900 text-red-600 hover:bg-red-200 dark:hover:bg-red-800 hover:text-red-700 border-0"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -497,7 +747,7 @@ export default function LearnPage() {
 
             <div className="flex flex-col gap-1">
               <Button
-                variant="success"
+                variant="secondary"
                 className="h-14 bg-green-100 dark:bg-green-900 text-green-600 hover:bg-green-200 dark:hover:bg-green-800 hover:text-green-700 border-0"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -511,7 +761,7 @@ export default function LearnPage() {
 
             <div className="flex flex-col gap-1">
               <Button
-                variant="primary"
+                variant="secondary"
                 className="h-14 bg-blue-100 dark:bg-blue-900 text-blue-600 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-700 border-0"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -525,6 +775,46 @@ export default function LearnPage() {
           </div>
         )}
       </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <div className="bg-card px-4 py-3 flex items-center justify-between shadow-sm z-10">
+        <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+          <X className="w-5 h-5 text-muted-foreground" />
+        </Button>
+        <div className="flex-1 mx-4">
+          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+            <span>
+              오늘의 학습{" "}
+              <span className="text-indigo-600 font-medium">
+                (
+                {currentQuizMode === "flashcard"
+                  ? "플래시카드"
+                  : currentQuizMode === "multiple-choice"
+                    ? "객관식"
+                    : "직접 입력"}
+                )
+              </span>
+            </span>
+            <span>
+              {currentIndex + 1} / {cards.length}
+            </span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+        <div className="w-10" />
+      </div>
+
+      {/* Quiz Content */}
+      {renderQuizContent()}
+
+      {/* Controls */}
+      {renderControls()}
     </div>
   )
 }
