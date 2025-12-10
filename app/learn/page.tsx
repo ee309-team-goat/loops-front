@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MOCK_CARDS, FSRS_RATING } from "@/lib/api/client"
 import { startStudySession, completeStudySession, isDevMode, isLoggedIn, type SessionCard } from "@/lib/api/study"
+import { getUserConfig } from "@/lib/api/user-config"
 import { Volume2, X, Mic, Lightbulb, Repeat, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -57,23 +58,32 @@ export default function LearnPage() {
       setIsLoading(true)
       setError(null)
 
-      // Get vocabulary settings
-      const vocabSettings = localStorage.getItem("vocabularySettings")
-      let dailyGoal = 20
-
-      if (vocabSettings) {
-        try {
-          const parsed = JSON.parse(vocabSettings)
-          dailyGoal = parsed.dailyGoal || 20
-        } catch (e) {
-          console.error("Failed to parse vocabulary settings")
-        }
-      }
-
       // Check if logged in
       if (!isLoggedIn()) {
         router.push("/login")
         return
+      }
+
+      // Get daily goal from API or localStorage
+      let dailyGoal = 20
+      try {
+        const config = await getUserConfig()
+        if (config) {
+          dailyGoal = config.daily_goal || 20
+          console.log("[v0] Daily goal from API:", dailyGoal)
+        }
+      } catch (e) {
+        console.error("[v0] Failed to get user config, using default")
+        // Fallback to localStorage
+        const vocabSettings = localStorage.getItem("vocabularySettings")
+        if (vocabSettings) {
+          try {
+            const parsed = JSON.parse(vocabSettings)
+            dailyGoal = parsed.dailyGoal || 20
+          } catch (e) {
+            console.error("Failed to parse vocabulary settings")
+          }
+        }
       }
 
       // If DEV mode, use mock cards
