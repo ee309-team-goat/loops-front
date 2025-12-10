@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { ChevronLeft, HelpCircle, Check } from "lucide-react"
 import { useCourseStore } from "@/store/course-store"
+import { deriveCounts, clampPercent } from "@/lib/review-ratio"
 
 export default function ReviewRatioPage() {
   const router = useRouter()
@@ -14,26 +15,13 @@ export default function ReviewRatioPage() {
     setCustomReviewRatioPercent,
   } = useCourseStore()
 
-  // Derived values based on mode
-  const getWordCounts = () => {
-    if (reviewRatioMode === "normal") {
-      // Normal mode: minimum 25% new words guaranteed
-      const newCount = Math.max(Math.round(targetWordCount * 0.25), 1)
-      const reviewCount = targetWordCount - newCount
-      return { newCount, reviewCount }
-    } else {
-      // Custom mode: based on slider percent (percent = review ratio)
-      const reviewCount = Math.round(targetWordCount * (customReviewRatioPercent / 100))
-      const newCount = targetWordCount - reviewCount
-      return { newCount, reviewCount }
-    }
-  }
+  const { safeTarget, newCount, reviewCount, reviewPercent } = deriveCounts({
+    mode: reviewRatioMode,
+    targetWordCount,
+    customReviewRatioPercent,
+  })
 
-  const { newCount, reviewCount } = getWordCounts()
-
-  // Calculate arc for donut chart (review portion is orange)
-  const reviewPercentage =
-    reviewRatioMode === "custom" ? customReviewRatioPercent : Math.round((reviewCount / targetWordCount) * 100)
+  const clampedPercent = clampPercent(customReviewRatioPercent)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -76,8 +64,8 @@ export default function ReviewRatioPage() {
               className="absolute inset-0 rounded-full"
               style={{
                 background: `conic-gradient(
-                  #f97316 0deg ${reviewPercentage * 3.6}deg,
-                  #e5e7eb ${reviewPercentage * 3.6}deg 360deg
+                  #f97316 0deg ${reviewPercent * 3.6}deg,
+                  #e5e7eb ${reviewPercent * 3.6}deg 360deg
                 )`,
               }}
             />
@@ -94,7 +82,7 @@ export default function ReviewRatioPage() {
               <div className="mt-3 bg-gray-800 text-white text-xs px-3 py-1 rounded">하루 목표량</div>
               <div className="mt-1">
                 <span className="text-2xl font-bold text-orange-500">0</span>
-                <span className="text-gray-400">/{targetWordCount}</span>
+                <span className="text-gray-400">/{safeTarget}</span>
               </div>
             </div>
           </div>
@@ -157,10 +145,9 @@ export default function ReviewRatioPage() {
 
               {/* Slider with tooltip */}
               <div className="relative pt-6 pb-2">
-                {/* Tooltip showing percentage */}
                 <div
                   className="absolute -top-1 transform -translate-x-1/2 bg-gray-800 text-white text-sm px-2 py-1 rounded"
-                  style={{ left: `${customReviewRatioPercent}%` }}
+                  style={{ left: `${clampedPercent}%` }}
                 >
                   {customReviewRatioPercent}%
                 </div>
@@ -181,10 +168,9 @@ export default function ReviewRatioPage() {
                     onChange={(e) => setCustomReviewRatioPercent(Number(e.target.value))}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
-                  {/* Visual thumb */}
                   <div
                     className="absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white border-2 border-green-500 rounded-full shadow-md flex items-center justify-center pointer-events-none"
-                    style={{ left: `calc(${customReviewRatioPercent}% - 12px)` }}
+                    style={{ left: `clamp(12px, calc(${customReviewRatioPercent}% - 12px), calc(100% - 12px))` }}
                   >
                     <div className="text-green-500 text-xs">≈</div>
                   </div>
@@ -195,19 +181,6 @@ export default function ReviewRatioPage() {
                   <span>복습할 단어</span>
                   <span>새 단어</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Review only option */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                  <span className="text-gray-600">복습만 하기</span>
-                </div>
-                <button className="p-1">
-                  <HelpCircle className="w-5 h-5 text-gray-400" />
-                </button>
               </div>
             </div>
           </div>

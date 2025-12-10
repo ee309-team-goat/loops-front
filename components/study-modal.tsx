@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useCourseStore } from "@/store/course-store"
 import { buildCourseSummary } from "@/lib/course-summary"
 import { MOCK_CATEGORIES } from "@/lib/mock-decks"
+import { deriveCounts } from "@/lib/review-ratio"
 
 export type ModalStep = "today" | "extra"
 
@@ -56,9 +57,15 @@ export function StudyModal({
     courseLabel = courseDisplayName || "선택한 단어장 없음"
   }
 
-  const reviewRatioPercent = reviewRatioMode === "normal" ? 70 : customReviewRatioPercent
-  const extraReview = Math.round((targetWordCount * reviewRatioPercent) / 100)
-  const extraNew = targetWordCount - extraReview
+  const {
+    newCount: extraNew,
+    reviewCount: extraReview,
+    reviewPercent: reviewRatioPercent,
+  } = deriveCounts({
+    mode: reviewRatioMode,
+    targetWordCount,
+    customReviewRatioPercent,
+  })
 
   const handleChangeCourse = () => {
     router.push("/course/change")
@@ -215,7 +222,7 @@ export function StudyModal({
                 </div>
               </div>
 
-              {/* Stats */}
+              {/* Stats - now using deriveCounts values */}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between gap-4">
                   <span className="text-gray-500">새로운 단어</span>
