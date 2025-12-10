@@ -1,25 +1,39 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ChevronLeft, HelpCircle, Check } from "lucide-react"
 import { useCourseStore } from "@/store/course-store"
 
 export default function ReviewRatioPage() {
   const router = useRouter()
-  const { reviewRatioMode, customReviewRatioPercent, setReviewRatioMode, setCustomReviewRatioPercent } =
-    useCourseStore()
+  const {
+    reviewRatioMode,
+    customReviewRatioPercent,
+    targetWordCount,
+    setReviewRatioMode,
+    setCustomReviewRatioPercent,
+  } = useCourseStore()
 
-  // Local state for editing
-  const [mode, setMode] = useState<"normal" | "custom">(reviewRatioMode)
-  const [customPercent, setCustomPercent] = useState(customReviewRatioPercent)
-
-  const handleSave = () => {
-    setReviewRatioMode(mode)
-    setCustomReviewRatioPercent(customPercent)
-    router.back()
+  // Derived values based on mode
+  const getWordCounts = () => {
+    if (reviewRatioMode === "normal") {
+      // Normal mode: minimum 25% new words guaranteed
+      const newCount = Math.max(Math.round(targetWordCount * 0.25), 1)
+      const reviewCount = targetWordCount - newCount
+      return { newCount, reviewCount }
+    } else {
+      // Custom mode: based on slider percent (percent = review ratio)
+      const reviewCount = Math.round(targetWordCount * (customReviewRatioPercent / 100))
+      const newCount = targetWordCount - reviewCount
+      return { newCount, reviewCount }
+    }
   }
+
+  const { newCount, reviewCount } = getWordCounts()
+
+  // Calculate arc for donut chart (review portion is orange)
+  const reviewPercentage =
+    reviewRatioMode === "custom" ? customReviewRatioPercent : Math.round((reviewCount / targetWordCount) * 100)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -31,59 +45,173 @@ export default function ReviewRatioPage() {
         <h1 className="text-lg font-bold">복습 단어 비율</h1>
       </div>
 
-      <div className="p-4 space-y-4">
-        {/* Normal Mode */}
-        <button
-          className={`w-full p-4 rounded-xl border-2 text-left transition-colors ${
-            mode === "normal" ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"
-          }`}
-          onClick={() => setMode("normal")}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-bold">기본 비율</span>
-            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">권장</span>
-          </div>
-          <p className="text-sm text-gray-500">새 단어 30% / 복습 단어 70%로 학습합니다.</p>
-        </button>
+      <div className="p-4 space-y-6">
+        {/* Mode Toggle */}
+        <div className="flex bg-gray-100 rounded-full p-1">
+          <button
+            className={`flex-1 py-2.5 px-4 rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+              reviewRatioMode === "normal" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500"
+            }`}
+            onClick={() => setReviewRatioMode("normal")}
+          >
+            {reviewRatioMode === "normal" && <Check className="w-4 h-4" />}
+            일반 모드
+          </button>
+          <button
+            className={`flex-1 py-2.5 px-4 rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+              reviewRatioMode === "custom" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500"
+            }`}
+            onClick={() => setReviewRatioMode("custom")}
+          >
+            {reviewRatioMode === "custom" && <Check className="w-4 h-4" />}
+            커스텀 모드
+          </button>
+        </div>
 
-        {/* Custom Mode */}
-        <button
-          className={`w-full p-4 rounded-xl border-2 text-left transition-colors ${
-            mode === "custom" ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"
-          }`}
-          onClick={() => setMode("custom")}
-        >
-          <div className="font-bold mb-1">직접 설정</div>
-          <p className="text-sm text-gray-500">복습 단어 비율을 직접 설정합니다.</p>
-        </button>
-
-        {/* Custom Slider (shown when custom mode) */}
-        {mode === "custom" && (
-          <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-4">
-            <div className="flex justify-between text-sm">
-              <span>새 단어: {100 - customPercent}%</span>
-              <span>복습 단어: {customPercent}%</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="10"
-              value={customPercent}
-              onChange={(e) => setCustomPercent(Number(e.target.value))}
-              className="w-full accent-indigo-600"
+        {/* Donut Chart */}
+        <div className="flex justify-center py-8">
+          <div className="relative w-48 h-48">
+            {/* Donut ring using conic-gradient */}
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: `conic-gradient(
+                  #f97316 0deg ${reviewPercentage * 3.6}deg,
+                  #e5e7eb ${reviewPercentage * 3.6}deg 360deg
+                )`,
+              }}
             />
-            <div className="flex justify-between text-xs text-gray-400">
-              <span>0%</span>
-              <span>50%</span>
-              <span>100%</span>
+            {/* Inner white circle */}
+            <div className="absolute inset-4 bg-white rounded-full flex flex-col items-center justify-center">
+              <div className="text-sm text-gray-600 space-y-1 text-center">
+                <p>
+                  새로운 단어 <span className="font-bold text-gray-900">{newCount}</span> 개
+                </p>
+                <p>
+                  복습할 단어 <span className="font-bold text-gray-900">{reviewCount}</span> 개
+                </p>
+              </div>
+              <div className="mt-3 bg-gray-800 text-white text-xs px-3 py-1 rounded">하루 목표량</div>
+              <div className="mt-1">
+                <span className="text-2xl font-bold text-orange-500">0</span>
+                <span className="text-gray-400">/{targetWordCount}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mode-specific content */}
+        {reviewRatioMode === "normal" ? (
+          /* Normal Mode Content */
+          <div className="space-y-4">
+            <p className="text-gray-700">
+              오늘 복습할 단어가 더 있더라도,{" "}
+              <span className="text-indigo-600 font-medium">새로운 단어가 최소 25%</span>는 나와요.
+            </p>
+            <p className="text-gray-600 text-sm">
+              예를 들어, 나의 하루 목표량이 100개라면, 최소 25개는 새로운 단어로 구성돼요.
+            </p>
+            <p className="text-gray-400 text-xs">* 재도전 어휘는 복습 단어의 비율에 포함돼요.</p>
+
+            {/* FAQ Section */}
+            <div className="mt-6 bg-gray-100 rounded-xl p-4">
+              <h3 className="font-bold text-gray-800 mb-3">Q. 복습을 못하고 그냥 넘어가면 어떻게 되죠?</h3>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li className="flex items-start gap-2">
+                  <span className="text-gray-400">·</span>
+                  <span>당일 복습하지 못한 단어도 차차 다시 나와요</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-gray-400">·</span>
+                  <span>
+                    복습 단어는 <span className="text-indigo-600 font-medium">지금 배우면 가장 잘 외워질 단어</span>부터
+                    나와요.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-gray-400">·</span>
+                  <span>
+                    새로운 단어를 학습하면서 알게 되는 다양한 예문들이 미리지 복습 단어를 다시 봤을 때{" "}
+                    <span className="text-indigo-600 font-medium">더 잘 기억</span>할 수 있게
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        ) : (
+          /* Custom Mode Content */
+          <div className="space-y-4">
+            {/* Custom ratio option */}
+            <div className="bg-white rounded-xl border-2 border-indigo-500 p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-indigo-600 flex items-center justify-center">
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  </div>
+                  <span className="font-medium">복습 비율 직접 정하기</span>
+                </div>
+                <button className="p-1">
+                  <HelpCircle className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* Slider with tooltip */}
+              <div className="relative pt-6 pb-2">
+                {/* Tooltip showing percentage */}
+                <div
+                  className="absolute -top-1 transform -translate-x-1/2 bg-gray-800 text-white text-sm px-2 py-1 rounded"
+                  style={{ left: `${customReviewRatioPercent}%` }}
+                >
+                  {customReviewRatioPercent}%
+                </div>
+
+                {/* Slider track */}
+                <div className="relative h-3 bg-gray-200 rounded-full">
+                  <div
+                    className="absolute h-full bg-green-500 rounded-full"
+                    style={{ width: `${customReviewRatioPercent}%` }}
+                  />
+                  {/* Slider thumb */}
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={customReviewRatioPercent}
+                    onChange={(e) => setCustomReviewRatioPercent(Number(e.target.value))}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  {/* Visual thumb */}
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white border-2 border-green-500 rounded-full shadow-md flex items-center justify-center pointer-events-none"
+                    style={{ left: `calc(${customReviewRatioPercent}% - 12px)` }}
+                  >
+                    <div className="text-green-500 text-xs">≈</div>
+                  </div>
+                </div>
+
+                {/* Labels */}
+                <div className="flex justify-between mt-2 text-xs text-gray-500">
+                  <span>복습할 단어</span>
+                  <span>새 단어</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Review only option */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                  <span className="text-gray-600">복습만 하기</span>
+                </div>
+                <button className="p-1">
+                  <HelpCircle className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
             </div>
           </div>
         )}
-
-        <Button className="w-full py-6" onClick={handleSave}>
-          설정 완료
-        </Button>
       </div>
     </div>
   )
