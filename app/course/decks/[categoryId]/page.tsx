@@ -1,16 +1,15 @@
 "use client"
 
-import { use } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, Check, Minus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCourseStore } from "@/store/course-store"
 import { getCategoryById } from "@/lib/mock-decks"
 
-export default function CategoryDetailPage({ params }: { params: Promise<{ categoryId: string }> }) {
-  const { categoryId } = use(params)
+export default function CategoryDetailPage({ params }: { params: { categoryId: string } }) {
+  const { categoryId } = params
   const router = useRouter()
-  const { customSelectedDeckIds, setSelectedDeckIds, reviewScope, setReviewScope } = useCourseStore()
+  const { customSelectedDeckIds, setSelectedDeckIds } = useCourseStore()
 
   const category = getCategoryById(categoryId)
 
@@ -54,12 +53,10 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ categ
   }
 
   const handleComplete = () => {
-    router.push("/course/decks")
+    router.back()
   }
 
   const isDeckSelected = (deckId: string) => customSelectedDeckIds.includes(deckId)
-
-  const reviewScopeLabel = reviewScope === "all_learned" ? "학습한 모든 단어" : "선택한 단어장만"
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -156,31 +153,6 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ categ
         </div>
       </div>
 
-      {/* Review Scope */}
-      <div className="bg-white border-t border-gray-100 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded font-medium">복습 범위</span>
-            <span className="text-sm text-gray-700">{reviewScopeLabel}</span>
-          </div>
-          <button
-            onClick={() => {
-              setReviewScope(reviewScope === "all_learned" ? "selected_decks" : "all_learned")
-            }}
-            className="text-indigo-600"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
-
       {/* Bottom CTA */}
       <div className="p-4 bg-white border-t border-gray-100">
         <div className="flex gap-3">
@@ -191,11 +163,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ categ
           >
             나가기
           </Button>
-          <Button
-            className="flex-1 py-6 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:text-gray-500"
-            onClick={handleComplete}
-            disabled={selectedCount === 0}
-          >
+          <Button className="flex-1 py-6 bg-indigo-600 hover:bg-indigo-700" onClick={handleComplete}>
             선택 완료
           </Button>
         </div>
