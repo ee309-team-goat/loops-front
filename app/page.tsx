@@ -10,6 +10,7 @@ export default function LandingPage() {
   const router = useRouter()
 
   const handleDevSkip = () => {
+    localStorage.setItem("dev_mode", "true")
     localStorage.setItem(
       "authInfo",
       JSON.stringify({
