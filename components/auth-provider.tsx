@@ -124,13 +124,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [accessToken])
 
   const devSkip = useCallback(() => {
-    console.log("[v0] devSkip called - setting fake auth state")
-    setAccessToken("dev-skip-token")
-    setUser({
-      id: "dev-user",
-      email: "dev@example.com",
-      username: "DevUser",
-    })
+    console.log("[v0] devSkip called - setting fake auth state and saving to storage")
+    const fakeAuth: AuthPayload = {
+      access_token: "dev-skip-token",
+      refresh_token: "dev-skip-refresh-token",
+      user: {
+        id: "dev-user",
+        email: "dev@example.com",
+        username: "DevUser",
+      },
+    }
+    saveAuth(fakeAuth)
+    // State will be updated via AUTH_CHANGED_EVENT listener
   }, [])
 
   const value: AuthContextValue = {
