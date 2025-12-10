@@ -7,37 +7,37 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { login } from "@/lib/api/auth"
 
 export default function LoginPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
-    localStorage.setItem(
-      "authInfo",
-      JSON.stringify({
-        type: "email",
-        email: email,
-        loginMethod: "email",
-      }),
-    )
-
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      await login({ email, password })
       router.push("/dashboard")
-    }, 1000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "로그인에 실패했습니다.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleGoogleLogin = () => {
+    // TODO: Google OAuth 구현
     localStorage.setItem(
       "authInfo",
       JSON.stringify({
         type: "google",
-        email: "user@gmail.com", // 실제로는 Google OAuth에서 가져옴
+        email: "user@gmail.com",
         loginMethod: "google",
       }),
     )
@@ -57,6 +57,12 @@ export default function LoginPage() {
           <p className="text-muted-foreground">오늘의 학습 목표를 달성해볼까요?</p>
         </div>
 
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">이메일</label>
@@ -75,6 +81,8 @@ export default function LoginPage() {
             <input
               type="password"
               required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 outline-none transition-all"
               placeholder="••••••••"
             />
