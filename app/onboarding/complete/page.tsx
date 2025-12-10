@@ -3,13 +3,9 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
 
 export default function OnboardingCompletePage() {
   const router = useRouter()
-  const { user } = useAuth()
-
-  const displayName = user?.name || "회원"
 
   useEffect(() => {
     // Simulate loading initial deck
@@ -29,7 +25,7 @@ export default function OnboardingCompletePage() {
       <div className="space-y-2">
         <h1 className="text-2xl font-bold">맞춤 단어장을 만들고 있어요</h1>
         <p className="text-gray-500">
-          {displayName}님을 위한 첫 20개 단어가 준비되고 있습니다.
+          준호님을 위한 첫 20개 단어가 준비되고 있습니다.
           <br />
           잠시만 기다려주세요!
         </p>

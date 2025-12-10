@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Check, Loader2 } from "lucide-react"
-import { getUserConfig, updateUserConfig } from "@/lib/api/user-config"
+import { ChevronLeft, Check } from "lucide-react"
 
 type QuizMode = "flashcard" | "multiple-choice" | "typing"
 
@@ -14,63 +13,45 @@ const QUIZ_MODES: { value: QuizMode; label: string }[] = [
   { value: "typing", label: "직접 입력" },
 ]
 
+const DECK_TYPES = [
+  { id: "toefl", name: "TOEFL 필수 단어장", icon: "🎓" },
+  { id: "toeic", name: "TOEIC 필수 단어장", icon: "💼" },
+  { id: "ielts", name: "IELTS 필수 단어장", icon: "✈️" },
+  { id: "daily", name: "일상 회화 기초", icon: "💬" },
+  { id: "business", name: "비즈니스 영어", icon: "📊" },
+  { id: "travel", name: "여행 영어", icon: "🌎" },
+]
+
 export default function VocabularySettingsPage() {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
   const [settings, setSettings] = useState({
     dailyGoal: 20,
     quizModes: ["flashcard"] as QuizMode[],
+    deckTypes: ["daily"] as string[],
   })
 
   useEffect(() => {
-    const loadSettings = async () => {
-      setIsLoading(true)
+    const saved = localStorage.getItem("vocabularySettings")
+    if (saved) {
       try {
-        const config = await getUserConfig()
-        if (config) {
-          setSettings((prev) => ({
-            ...prev,
-            dailyGoal: config.daily_goal || 20,
-          }))
+        const parsed = JSON.parse(saved)
+        if (parsed.difficulty && !parsed.deckTypes) {
+          parsed.deckTypes = ["daily"]
+          delete parsed.difficulty
         }
-
-        // Load quiz modes from localStorage (not in API)
-        const saved = localStorage.getItem("vocabularySettings")
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved)
-            if (parsed.quizModes) {
-              setSettings((prev) => ({ ...prev, quizModes: parsed.quizModes }))
-            }
-          } catch (e) {
-            console.error("Failed to parse local settings")
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load settings:", error)
-      } finally {
-        setIsLoading(false)
+        setSettings(parsed)
+      } catch (e) {
+        console.error("Failed to parse settings")
       }
     }
-
-    loadSettings()
   }, [])
 
-  const updateDailyGoal = async (value: number) => {
-    setSettings((prev) => ({ ...prev, dailyGoal: value }))
-    setIsSaving(true)
-
-    try {
-      await updateUserConfig({ daily_goal: value })
-      // Also save to localStorage for offline fallback
-      const localSettings = { ...settings, dailyGoal: value }
-      localStorage.setItem("vocabularySettings", JSON.stringify(localSettings))
-    } catch (error) {
-      console.error("Failed to save daily goal:", error)
-    } finally {
-      setIsSaving(false)
-    }
+  const updateSetting = (key: string, value: any) => {
+    setSettings((prev) => {
+      const newSettings = { ...prev, [key]: value }
+      localStorage.setItem("vocabularySettings", JSON.stringify(newSettings))
+      return newSettings
+    })
   }
 
   const toggleQuizMode = (mode: QuizMode) => {
@@ -84,17 +65,21 @@ export default function VocabularySettingsPage() {
       newModes = [...currentModes, mode]
     }
 
-    setSettings((prev) => ({ ...prev, quizModes: newModes }))
-    // Save quiz modes to localStorage (not in API)
-    localStorage.setItem("vocabularySettings", JSON.stringify({ ...settings, quizModes: newModes }))
+    updateSetting("quizModes", newModes)
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-      </div>
-    )
+  const toggleDeckType = (deckId: string) => {
+    const currentDecks = settings.deckTypes
+    let newDecks: string[]
+
+    if (currentDecks.includes(deckId)) {
+      if (currentDecks.length === 1) return
+      newDecks = currentDecks.filter((d) => d !== deckId)
+    } else {
+      newDecks = [...currentDecks, deckId]
+    }
+
+    updateSetting("deckTypes", newDecks)
   }
 
   return (
@@ -104,7 +89,6 @@ export default function VocabularySettingsPage() {
           <ChevronLeft className="w-5 h-5 text-gray-700" />
         </Button>
         <h1 className="text-xl font-bold text-gray-900">어휘학습</h1>
-        {isSaving && <Loader2 className="w-4 h-4 text-indigo-500 animate-spin ml-auto" />}
       </div>
 
       <div className="p-4 space-y-4">
@@ -113,7 +97,7 @@ export default function VocabularySettingsPage() {
             <label className="block text-sm text-gray-700 font-medium">하루 목표 (단어 수)</label>
             <select
               value={settings.dailyGoal}
-              onChange={(e) => updateDailyGoal(Number(e.target.value))}
+              onChange={(e) => updateSetting("dailyGoal", Number(e.target.value))}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value={10}>10개 (가볍게)</option>
@@ -151,6 +135,38 @@ export default function VocabularySettingsPage() {
               })}
             </div>
             <p className="text-xs text-gray-500">선택한 방식들이 랜덤하게 섞여서 출제됩니다.</p>
+          </div>
+
+          <div className="space-y-3 pt-2 border-t border-gray-100">
+            <label className="block text-sm text-gray-700 font-medium">단어장 종류 (복수 선택 가능)</label>
+            <div className="space-y-2">
+              {DECK_TYPES.map((deck) => {
+                const isSelected = settings.deckTypes.includes(deck.id)
+                return (
+                  <button
+                    key={deck.id}
+                    onClick={() => toggleDeckType(deck.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
+                      isSelected
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="font-medium">
+                      {deck.icon} {deck.name}
+                    </span>
+                    <div
+                      className={`w-5 h-5 rounded flex items-center justify-center ${
+                        isSelected ? "bg-indigo-500" : "border border-gray-300"
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-500">선택한 단어장에서 단어가 출제됩니다.</p>
           </div>
         </div>
       </div>

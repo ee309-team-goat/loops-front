@@ -4,13 +4,16 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, MessageCircle, Copy, Check, Plus, Mail, User, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, MessageCircle, Copy, Check, Plus, Mail, User } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { fetchCurrentUser, updateUserProfile, deleteUserAccount, type UserRead } from "@/lib/api/user"
-import { logout, isLoggedIn, isDevMode as checkDevMode } from "@/lib/api/auth"
-import { useAuth } from "@/contexts/auth-context"
 
-type AuthProvider = "guest" | "email" | "email_password" | "google" | "kakao" | "naver" | "apple" | "facebook" | "other"
+type AuthProvider = "guest" | "email" | "google" | "kakao" | "naver" | "apple" | "facebook" | "other"
+
+type AuthInfo = {
+  type: AuthProvider
+  email: string
+  loginMethod: string
+}
 
 const PROVIDER_STYLES: Record<
   string,
@@ -29,12 +32,6 @@ const PROVIDER_STYLES: Record<
     textColor: "text-gray-900",
   },
   email: {
-    icon: <Mail className="w-6 h-6 text-blue-600" />,
-    label: "이메일 계정",
-    bgColor: "bg-blue-100",
-    textColor: "text-blue-900",
-  },
-  email_password: {
     icon: <Mail className="w-6 h-6 text-blue-600" />,
     label: "이메일 계정",
     bgColor: "bg-blue-100",
@@ -115,106 +112,37 @@ function getProviderStyle(type: AuthProvider) {
   return PROVIDER_STYLES[type] || DEFAULT_PROVIDER_STYLE
 }
 
-function normalizeProvider(provider: string | undefined): AuthProvider {
-  if (!provider) return "guest"
-  // email_password -> email_password 그대로 사용 (스타일에 추가함)
-  if (provider === "email_password" || provider === "email") return provider as AuthProvider
-  if (PROVIDER_STYLES[provider]) return provider as AuthProvider
-  return "other"
-}
-
 export default function AccountPage() {
   const router = useRouter()
-  const { user: authUser, isDevMode: contextDevMode, logout: authLogout, updateUser, refreshUser } = useAuth()
-
   const [copied, setCopied] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [learningPurpose, setLearningPurpose] = useState("")
   const [showPurposeSelect, setShowPurposeSelect] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-
-  const [user, setUser] = useState<UserRead | null>(authUser)
-  const [isLoading, setIsLoading] = useState(!authUser)
-  const [error, setError] = useState<string | null>(null)
-  const [isDevMode, setIsDevMode] = useState(contextDevMode)
+  const [authInfo, setAuthInfo] = useState<AuthInfo | null>(null)
+  const [accountCode, setAccountCode] = useState("")
 
   useEffect(() => {
-    if (authUser) {
-      setUser(authUser)
-      setIsLoading(false)
-      setIsDevMode(contextDevMode)
-      setLearningPurpose(authUser.learning_purpose || localStorage.getItem("learningPurpose") || "미설정")
-    }
-  }, [authUser, contextDevMode])
-
-  useEffect(() => {
-    async function loadUserData() {
-      // AuthContext에서 이미 유저 정보가 있으면 스킵
-      if (authUser) {
-        return
-      }
-
-      setIsLoading(true)
-      setError(null)
-
-      // DEV 모드 체크
-      if (checkDevMode()) {
-        setIsDevMode(true)
-        setUser({
-          id: 0,
-          email: "devs@kaist.ac.kr",
-          username: "DEV User",
-          is_active: true,
-          select_all_decks: true,
-          daily_goal: 20,
-          timezone: "Asia/Seoul",
-          theme: "light",
-          notification_enabled: true,
-          current_streak: 0,
-          longest_streak: 0,
-          last_study_date: null,
-          total_study_time_minutes: 0,
-          created_at: new Date().toISOString(),
-          updated_at: null,
-          provider: "guest",
-        })
-        const savedPurpose = localStorage.getItem("learningPurpose")
-        setLearningPurpose(savedPurpose || "미설정")
-        setIsLoading(false)
-        return
-      }
-
-      // 실제 API 호출
-      if (isLoggedIn()) {
-        try {
-          const userData = await fetchCurrentUser()
-          setUser(userData)
-          updateUser(userData)
-          setLearningPurpose(userData.learning_purpose || localStorage.getItem("learningPurpose") || "미설정")
-          setIsDevMode(false)
-          setIsLoading(false)
-          return
-        } catch (err) {
-          console.error("Failed to fetch user:", err)
-          // 401 에러 시 로그인 페이지로 이동
-          if (err instanceof Error && err.message.includes("세션이 만료")) {
-            setError("세션이 만료되었습니다. 다시 로그인해주세요.")
-            setIsLoading(false)
-            return
-          }
-          setError("사용자 정보를 불러오는데 실패했습니다.")
-        }
-      }
-
-      // 로그인 필요
-      setError("로그인이 필요합니다.")
-      setIsLoading(false)
+    const savedAuth = localStorage.getItem("authInfo")
+    if (savedAuth) {
+      setAuthInfo(JSON.parse(savedAuth))
     }
 
-    loadUserData()
-  }, [authUser, updateUser])
+    const savedPurpose = localStorage.getItem("learningPurpose")
+    if (savedPurpose) {
+      setLearningPurpose(savedPurpose)
+    } else {
+      setLearningPurpose("미설정")
+    }
 
-  const accountCode = user ? `LOOPS-${String(user.id).padStart(8, "0")}` : ""
+    const savedCode = localStorage.getItem("accountCode")
+    if (savedCode) {
+      setAccountCode(savedCode)
+    } else {
+      const newCode = "LOOPS-" + Math.random().toString(36).substring(2, 10).toUpperCase()
+      localStorage.setItem("accountCode", newCode)
+      setAccountCode(newCode)
+    }
+  }, [])
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(accountCode)
@@ -222,86 +150,25 @@ export default function AccountPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleLogout = async () => {
-    try {
-      logout()
-      authLogout()
-    } catch (err) {
-      console.error("Logout error:", err)
-      // 에러가 나도 로컬 정리는 진행
-      logout()
-    }
+  const handleLogout = () => {
+    localStorage.removeItem("authInfo")
     router.push("/")
   }
 
-  const handleDeleteAccount = async () => {
-    try {
-      if (!isDevMode && user) {
-        await deleteUserAccount(user.id)
-      }
-      localStorage.clear()
-      router.push("/")
-    } catch (err) {
-      console.error("Delete account error:", err)
-      alert("계정 삭제에 실패했습니다. 다시 시도해주세요.")
-    }
+  const handleDeleteAccount = () => {
+    localStorage.clear()
+    router.push("/")
   }
 
-  const handlePurposeSelect = async (purpose: string) => {
+  const handlePurposeSelect = (purpose: string) => {
     setLearningPurpose(purpose)
-    setShowPurposeSelect(false)
-    setIsSaving(true)
-
     localStorage.setItem("learningPurpose", purpose)
-
-    if (!isDevMode && user) {
-      try {
-        const updatedUser = await updateUserProfile(user.id, { learning_purpose: purpose })
-        setUser(updatedUser)
-        updateUser(updatedUser)
-      } catch (err) {
-        console.error("Failed to save learning purpose:", err)
-        // 실패해도 로컬에는 저장됨
-      }
-    }
-
-    setIsSaving(false)
+    setShowPurposeSelect(false)
   }
 
   const purposes = ["취업/시험 준비", "업무/실무 활용", "여행/취미", "기타"]
 
-  const providerType = normalizeProvider(user?.provider)
-  const providerStyle = getProviderStyle(providerType)
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
-          <span className="text-gray-600">사용자 정보를 불러오는 중...</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (error && !user) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white px-4 py-4 flex items-center gap-3 border-b border-gray-200">
-          <button onClick={() => router.back()} className="p-1">
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          <h1 className="text-lg font-bold">계정 관리</h1>
-        </div>
-        <div className="flex flex-col items-center justify-center p-8 gap-4">
-          <p className="text-gray-600">{error}</p>
-          <Button onClick={() => router.push("/login")} className="bg-violet-600 hover:bg-violet-700">
-            로그인하기
-          </Button>
-        </div>
-      </div>
-    )
-  }
+  const providerStyle = authInfo ? getProviderStyle(authInfo.type) : null
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -311,7 +178,6 @@ export default function AccountPage() {
           <ChevronLeft className="w-6 h-6" />
         </button>
         <h1 className="text-lg font-bold">계정 관리</h1>
-        {isDevMode && <span className="ml-auto text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded">DEV MODE</span>}
       </div>
 
       <div className="p-4 space-y-4">
@@ -360,31 +226,27 @@ export default function AccountPage() {
           <div className="p-4 space-y-3">
             <span className="text-sm text-gray-500">연결된 계정</span>
 
-            {user && (
+            {authInfo && providerStyle && (
               <div className={`${providerStyle.bgColor} ${providerStyle.borderColor || ""} rounded-xl overflow-hidden`}>
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {providerStyle.icon}
                     <span className={`font-medium ${providerStyle.textColor}`}>{providerStyle.label}</span>
                   </div>
-                  {providerType !== "guest" && (
+                  {authInfo.type !== "guest" && (
                     <button className={`flex items-center gap-1 text-sm ${providerStyle.textColor} opacity-80`}>
                       연결해제
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   )}
                 </div>
-                <div className="px-4 pb-4 space-y-1">
-                  <div className={`text-sm ${providerStyle.textColor} opacity-80`}>이메일: {user.email}</div>
-                  <div className={`text-sm ${providerStyle.textColor} opacity-80`}>닉네임: {user.username}</div>
-                  <div className={`text-sm ${providerStyle.textColor} opacity-60`}>
-                    가입일: {new Date(user.created_at).toLocaleDateString("ko-KR")}
-                  </div>
+                <div className="px-4 pb-4">
+                  <span className={`text-sm ${providerStyle.textColor} opacity-80`}>이메일: {authInfo.email}</span>
                 </div>
               </div>
             )}
 
-            {providerType !== "guest" && (
+            {authInfo?.type !== "guest" && (
               <button className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-500 hover:bg-gray-50 transition-colors">
                 <Plus className="w-5 h-5" />
                 추가 계정 연결하기
@@ -394,7 +256,7 @@ export default function AccountPage() {
               </button>
             )}
 
-            {providerType === "guest" && (
+            {authInfo?.type === "guest" && (
               <div className="bg-violet-50 rounded-xl p-4 text-center">
                 <p className="text-sm text-violet-700 mb-3">
                   게스트 상태입니다. 학습 데이터를 저장하려면 계정을 연결하세요.

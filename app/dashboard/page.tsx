@@ -1,25 +1,16 @@
-"use client"
-
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Flame, BookOpen, Clock, Bell, BarChart3 } from "lucide-react"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
-import { useAuth } from "@/contexts/auth-context"
 
 export default function DashboardPage() {
-  const { user, isLoading } = useAuth()
-
-  const displayName = user?.name || "사용자"
-
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       {/* Header */}
       <div className="bg-card p-6 pb-8 rounded-b-3xl shadow-sm space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {isLoading ? "로딩 중..." : `안녕하세요, ${displayName}님! 👋`}
-            </h1>
+            <h1 className="text-2xl font-bold text-foreground">안녕하세요, 준호님! 👋</h1>
             <p className="text-muted-foreground">오늘도 목표를 향해 달려볼까요?</p>
           </div>
           <Link href="/notifications">
