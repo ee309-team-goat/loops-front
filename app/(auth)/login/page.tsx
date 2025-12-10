@@ -60,7 +60,7 @@ export default function LoginPage() {
         username: "준호",
       },
     })
-    router.push("/dashboard")
+    window.location.href = "/dashboard"
   }
 
   return (
