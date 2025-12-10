@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Sun, Bell, Volume2, Star, BookOpen, HelpCircle, Info, User, Library } from "lucide-react"
+import { ChevronRight, Sun, Bell, Volume2, BookOpen, HelpCircle, Info, User, Library } from "lucide-react"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
@@ -26,7 +26,6 @@ export default function MyPage() {
           path: "/my-page/notifications",
         },
         { icon: Volume2, label: "음성 및 효과음", description: "학습 음성 및 효과음 설정", path: "/my-page/audio" },
-        { icon: Star, label: "즐겨찾기", description: "홈에 표시할 학습 모드 설정", path: "/my-page/favorites" },
         {
           icon: BookOpen,
           label: "어휘학습",
