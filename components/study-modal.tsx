@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { X, BookOpen, RefreshCw, ChevronDown, ChevronUp, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCourseStore } from "@/store/course-store"
+import { buildCourseSummary } from "@/lib/course-summary"
+import { MOCK_CATEGORIES } from "@/lib/mock-decks"
 
 interface StudyModalProps {
   isOpen: boolean
@@ -29,12 +31,22 @@ export function StudyModal({
   currentProgress = 0,
 }: StudyModalProps) {
   const router = useRouter()
-  const { courseType } = useCourseStore()
+  const { courseType, customSelectedDeckIds } = useCourseStore()
   const [additionalCount, setAdditionalCount] = useState(10)
 
   if (!isOpen) return null
 
-  const courseLabel = courseType === "integrated" ? "통합 코스" : "커스텀 코스"
+  let courseLabel: string
+  if (courseType === "integrated") {
+    courseLabel = "통합 코스"
+  } else {
+    const { courseDisplayName } = buildCourseSummary({
+      categories: MOCK_CATEGORIES,
+      selectedDeckIds: customSelectedDeckIds,
+    })
+    courseLabel = courseDisplayName || "선택한 단어장 없음"
+  }
+
   const isCompleted = currentProgress >= totalTarget
 
   const handleChangeCourse = () => {

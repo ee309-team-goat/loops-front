@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { ChevronLeft, Check, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCourseStore, type CourseType } from "@/store/course-store"
+import { buildCourseSummary } from "@/lib/course-summary"
+import { MOCK_CATEGORIES } from "@/lib/mock-decks"
 
 export default function CourseChangePage() {
   const router = useRouter()
@@ -16,6 +18,13 @@ export default function CourseChangePage() {
   useEffect(() => {
     setSelectedType(courseType)
   }, [courseType])
+
+  const { courseDisplayName, selectionSummaryLines } = buildCourseSummary({
+    categories: MOCK_CATEGORIES,
+    selectedDeckIds: customSelectedDeckIds,
+  })
+
+  const hasSelectedDecks = customSelectedDeckIds.length > 0
 
   const handleConfirm = () => {
     setCourseType(selectedType)
@@ -29,9 +38,6 @@ export default function CourseChangePage() {
   const handleSelectDecks = () => {
     router.push("/course/decks")
   }
-
-  const hasSelectedDecks = customSelectedDeckIds.length > 0
-  const deckSummary = hasSelectedDecks ? `${customSelectedDeckIds.length}개 선택됨` : "선택한 단어장 없음"
 
   const reviewScopeLabel = reviewScope === "all_learned" ? "학습한 모든 단어" : "선택한 단어장만"
 
@@ -102,7 +108,17 @@ export default function CourseChangePage() {
                     단어장 선택
                   </button>
                 </div>
-                <p className="text-sm text-gray-500">• {deckSummary}</p>
+                {hasSelectedDecks ? (
+                  <div className="space-y-1">
+                    {selectionSummaryLines.map((line, idx) => (
+                      <p key={idx} className="text-sm text-gray-500">
+                        • {line}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">• 선택한 단어장 없음</p>
+                )}
               </div>
               {selectedType === "custom" && (
                 <div className="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center ml-3">
