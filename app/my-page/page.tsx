@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronRight, Bell, Volume2, Star, BookOpen, HelpCircle, Info, User, UserCog } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { BottomTabNav } from "@/components/bottom-tab-nav"
 
 export default function MyPage() {
   const router = useRouter()
@@ -149,7 +150,7 @@ export default function MyPage() {
       </div>
 
       {/* Bottom Tab Navigation */}
-      {/* BottomTabNav component is removed as per the update */}
+      <BottomTabNav />
     </div>
   )
 }
