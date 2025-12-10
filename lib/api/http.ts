@@ -6,6 +6,48 @@ interface ApiFetchOptions extends Omit<RequestInit, "body"> {
   body?: unknown
 }
 
+export class ApiError extends Error {
+  status: number
+  data: unknown
+  constructor(message: string, status: number, data: unknown) {
+    super(message)
+    this.name = "ApiError"
+    this.status = status
+    this.data = data
+  }
+}
+
+async function parseErrorResponse(res: Response): Promise<{ message: string; data: unknown }> {
+  let data: unknown = null
+  let message = `${res.status} ${res.statusText}`
+
+  try {
+    const text = await res.text()
+    if (!text) return { message, data }
+
+    // Try to parse as JSON
+    try {
+      data = JSON.parse(text)
+      // Extract detail field if it's a string
+      if (typeof data === "object" && data !== null && "detail" in data) {
+        const detail = (data as { detail: unknown }).detail
+        if (typeof detail === "string") {
+          message = detail
+        }
+      }
+    } catch {
+      // Not JSON, use text as message if meaningful
+      if (text.length < 200) {
+        message = text
+      }
+    }
+  } catch {
+    // Could not read response body
+  }
+
+  return { message, data }
+}
+
 let isRefreshing = false
 let refreshPromise: Promise<boolean> | null = null
 
@@ -87,17 +129,17 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
         res = await fetch(url, { ...fetchOptions, headers })
       } else {
         clearAuth()
-        throw new Error("Session expired. Please login again.")
+        throw new ApiError("Session expired. Please login again.", 401, null)
       }
     } else {
       clearAuth()
-      throw new Error("Unauthorized")
+      throw new ApiError("Unauthorized", 401, null)
     }
   }
 
   if (!res.ok) {
-    const errorBody = await res.text()
-    throw new Error(errorBody || `Request failed with status ${res.status}`)
+    const { message, data } = await parseErrorResponse(res)
+    throw new ApiError(message, res.status, data)
   }
 
   // Handle empty responses

@@ -8,26 +8,36 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
+import { getAuthFriendlyError, shouldSuggestLogin } from "@/lib/auth/error-messages"
 
 export default function SignupPage() {
   const router = useRouter()
   const { register } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showLoginCta, setShowLoginCta] = useState(false)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+
+  const clearError = () => {
+    setError(null)
+    setShowLoginCta(false)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setShowLoginCta(false)
 
     try {
       await register(email, name, password)
       router.push("/dashboard")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "회원가입에 실패했습니다.")
+      console.warn("[Auth] Register error:", err)
+      setError(getAuthFriendlyError(err, "register"))
+      setShowLoginCta(shouldSuggestLogin(err))
     } finally {
       setIsLoading(false)
     }
@@ -48,7 +58,17 @@ export default function SignupPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              <p>{error}</p>
+              {showLoginCta && (
+                <Link
+                  href="/login"
+                  className="inline-block mt-2 text-indigo-600 hover:text-indigo-700 font-medium underline"
+                >
+                  로그인하러 가기
+                </Link>
+              )}
+            </div>
           )}
 
           <div className="space-y-2">
@@ -57,7 +77,10 @@ export default function SignupPage() {
               type="text"
               required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value)
+                clearError()
+              }}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               placeholder="홍길동"
             />
@@ -69,7 +92,10 @@ export default function SignupPage() {
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                clearError()
+              }}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               placeholder="hello@example.com"
             />
@@ -81,7 +107,10 @@ export default function SignupPage() {
               type="password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                clearError()
+              }}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               placeholder="••••••••"
             />

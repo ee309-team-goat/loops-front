@@ -8,25 +8,42 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
+import { getAuthFriendlyError, shouldSuggestRegister } from "@/lib/auth/error-messages"
 
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showRegisterCta, setShowRegisterCta] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value)
+    setError(null)
+    setShowRegisterCta(false)
+  }
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value)
+    setError(null)
+    setShowRegisterCta(false)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setShowRegisterCta(false)
 
     try {
       await login(email, password)
       router.push("/dashboard")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "로그인에 실패했습니다.")
+      console.warn("[Auth] Login error:", err)
+      setError(getAuthFriendlyError(err, "login"))
+      setShowRegisterCta(shouldSuggestRegister(err))
     } finally {
       setIsLoading(false)
     }
@@ -47,7 +64,17 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              <p>{error}</p>
+              {showRegisterCta && (
+                <Link
+                  href="/signup"
+                  className="inline-block mt-2 text-indigo-600 hover:text-indigo-700 font-medium underline"
+                >
+                  회원가입하러 가기
+                </Link>
+              )}
+            </div>
           )}
 
           <div className="space-y-2">
@@ -56,7 +83,7 @@ export default function LoginPage() {
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               placeholder="hello@example.com"
             />
@@ -68,7 +95,7 @@ export default function LoginPage() {
               type="password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               placeholder="••••••••"
             />
