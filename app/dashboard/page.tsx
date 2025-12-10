@@ -2,20 +2,26 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Flame, BookOpen, Clock, Bell, BarChart3 } from "lucide-react"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { AuthRequired } from "@/components/auth-required"
 import { StudyModal } from "@/components/study-modal"
 
-export default function DashboardPage() {
-  const router = useRouter()
-  const [isStudyModalOpen, setIsStudyModalOpen] = useState(false)
+type ModalStep = "today" | "extra"
 
-  const handleStartStudy = () => {
-    setIsStudyModalOpen(false)
-    router.push("/learn")
+export default function DashboardPage() {
+  const [isStudyModalOpen, setIsStudyModalOpen] = useState(false)
+  const [modalStep, setModalStep] = useState<ModalStep>("today")
+
+  const todayGoal = 20
+  const todayProgress = 15
+  const isTodayComplete = todayProgress >= todayGoal
+
+  const handleContinueStudy = () => {
+    // If today complete, go straight to extra; otherwise start with today
+    setModalStep(isTodayComplete ? "extra" : "today")
+    setIsStudyModalOpen(true)
   }
 
   return (
@@ -73,7 +79,8 @@ export default function DashboardPage() {
             <div className="flex justify-between items-end">
               <div>
                 <div className="text-3xl font-bold text-indigo-600">
-                  15<span className="text-lg text-gray-400 font-normal">/20</span>
+                  {todayProgress}
+                  <span className="text-lg text-gray-400 font-normal">/{todayGoal}</span>
                 </div>
                 <div className="text-sm text-gray-500 mt-1">오늘의 목표 달성까지</div>
               </div>
@@ -85,13 +92,13 @@ export default function DashboardPage() {
 
             {/* Progress Bar */}
             <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-500 w-[75%] rounded-full" />
+              <div
+                className="h-full bg-indigo-500 rounded-full"
+                style={{ width: `${(todayProgress / todayGoal) * 100}%` }}
+              />
             </div>
 
-            <Button
-              className="w-full py-6 text-lg shadow-indigo-200 shadow-lg"
-              onClick={() => setIsStudyModalOpen(true)}
-            >
+            <Button className="w-full py-6 text-lg shadow-indigo-200 shadow-lg" onClick={handleContinueStudy}>
               학습 계속하기
             </Button>
           </div>
@@ -129,16 +136,16 @@ export default function DashboardPage() {
         {/* Bottom Tab Navigation */}
         <BottomTabNav />
 
-        {/* Study Modal */}
         <StudyModal
           isOpen={isStudyModalOpen}
           onClose={() => setIsStudyModalOpen(false)}
-          onStartStudy={handleStartStudy}
-          newWords={35}
-          reviewWords={73}
-          retryWords={32}
-          totalTarget={140}
-          currentProgress={0}
+          step={modalStep}
+          onStepChange={setModalStep}
+          todayGoal={todayGoal}
+          todayProgress={todayProgress}
+          todayNewCount={5}
+          todayReviewCount={10}
+          todayRetryCount={0}
         />
       </div>
     </AuthRequired>

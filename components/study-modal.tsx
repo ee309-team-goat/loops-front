@@ -1,38 +1,47 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { X, BookOpen, RefreshCw, ChevronDown, ChevronUp, Star } from "lucide-react"
+import { X, BookOpen, RefreshCw, ChevronDown, ChevronUp, Star, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCourseStore } from "@/store/course-store"
 import { buildCourseSummary } from "@/lib/course-summary"
 import { MOCK_CATEGORIES } from "@/lib/mock-decks"
 
+type ModalStep = "today" | "extra"
+
 interface StudyModalProps {
   isOpen: boolean
   onClose: () => void
-  onStartStudy: () => void
+  step: ModalStep
+  onStepChange: (step: ModalStep) => void
   // Stats from API (mock for now)
-  newWords?: number
-  reviewWords?: number
-  retryWords?: number
-  totalTarget?: number
-  currentProgress?: number
+  todayGoal?: number
+  todayProgress?: number
+  todayNewCount?: number
+  todayReviewCount?: number
+  todayRetryCount?: number
 }
 
 export function StudyModal({
   isOpen,
   onClose,
-  onStartStudy,
-  newWords = 35,
-  reviewWords = 73,
-  retryWords = 32,
-  totalTarget = 140,
-  currentProgress = 0,
+  step,
+  onStepChange,
+  todayGoal = 20,
+  todayProgress = 15,
+  todayNewCount = 5,
+  todayReviewCount = 15,
+  todayRetryCount = 0,
 }: StudyModalProps) {
   const router = useRouter()
-  const { courseType, customSelectedDeckIds } = useCourseStore()
-  const [additionalCount, setAdditionalCount] = useState(10)
+  const {
+    courseType,
+    customSelectedDeckIds,
+    targetWordCount,
+    setTargetWordCount,
+    reviewRatioMode,
+    customReviewRatioPercent,
+  } = useCourseStore()
 
   if (!isOpen) return null
 
@@ -47,20 +56,33 @@ export function StudyModal({
     courseLabel = courseDisplayName || "선택한 단어장 없음"
   }
 
-  const isCompleted = currentProgress >= totalTarget
+  const reviewRatioPercent = reviewRatioMode === "normal" ? 70 : customReviewRatioPercent
+  const extraReview = Math.round((targetWordCount * reviewRatioPercent) / 100)
+  const extraNew = targetWordCount - extraReview
 
   const handleChangeCourse = () => {
     router.push("/course/change")
     onClose()
   }
 
-  const handleStartStudy = () => {
-    onStartStudy()
+  const handleChangeReviewRatio = () => {
+    router.push("/settings/review-ratio")
+    onClose()
   }
 
   const adjustCount = (delta: number) => {
-    const newCount = Math.max(5, Math.min(50, additionalCount + delta))
-    setAdditionalCount(newCount)
+    const newCount = Math.max(5, Math.min(200, targetWordCount + delta))
+    setTargetWordCount(newCount)
+  }
+
+  const handleStartTodayStudy = () => {
+    router.push("/learn?mode=today")
+    onClose()
+  }
+
+  const handleStartExtraStudy = () => {
+    router.push("/learn?mode=extra")
+    onClose()
   }
 
   return (
@@ -95,89 +117,165 @@ export function StudyModal({
           </Button>
         </div>
 
-        {/* Progress Circle & Stats */}
-        <div className="flex items-center justify-center gap-8 mb-6">
-          {/* Circular Progress (simplified) */}
-          <div className="relative w-32 h-32">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="40" stroke="#E5E7EB" strokeWidth="8" fill="none" />
-              <circle
-                cx="50"
-                cy="50"
-                r="40"
-                stroke="#F97316"
-                strokeWidth="8"
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray={`${(currentProgress / totalTarget) * 251.2} 251.2`}
-              />
-            </svg>
-            {/* Mascot placeholder */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-4xl">🐥</div>
-            </div>
-          </div>
+        {step === "today" ? (
+          <>
+            {/* Today's Study Stats */}
+            <div className="flex items-center justify-center gap-8 mb-6">
+              {/* Circular Progress */}
+              <div className="relative w-32 h-32">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" stroke="#E5E7EB" strokeWidth="8" fill="none" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke="#F97316"
+                    strokeWidth="8"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(todayProgress / todayGoal) * 251.2} 251.2`}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-4xl">🐥</div>
+                </div>
+              </div>
 
-          {/* Stats */}
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">새로운 단어</span>
-              <span className="font-bold">
-                {newWords} <span className="text-gray-400 font-normal">개</span>
-              </span>
+              {/* Stats */}
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500">새로운 단어</span>
+                  <span className="font-bold">
+                    {todayNewCount} <span className="text-gray-400 font-normal">개</span>
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500">복습할 단어</span>
+                  <span className="font-bold">
+                    {todayReviewCount} <span className="text-gray-400 font-normal">개</span>
+                  </span>
+                </div>
+                {todayRetryCount > 0 && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-500">재도전 단어</span>
+                    <span className="font-bold">
+                      {todayRetryCount} <span className="text-gray-400 font-normal">개</span>
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">복습할 단어</span>
-              <span className="font-bold">
-                {reviewWords} <span className="text-gray-400 font-normal">개</span>
-              </span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">재도전 단어</span>
-              <span className="font-bold">
-                {retryWords} <span className="text-gray-400 font-normal">개</span>
-              </span>
-            </div>
-          </div>
-        </div>
 
-        {/* Change Stats Button */}
-        <div className="flex justify-center mb-4">
-          <Button variant="ghost" size="sm" className="text-gray-400 text-xs">
-            <RefreshCw className="w-3 h-3 mr-1" />
-            변경
-          </Button>
-        </div>
-
-        {/* Progress Text */}
-        <div className="text-center mb-6">
-          <span className="text-3xl font-bold text-orange-500">{currentProgress}</span>
-          <span className="text-lg text-gray-400">/{totalTarget}</span>
-        </div>
-
-        {/* Additional Study Section (when completed) */}
-        {isCompleted ? (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <button onClick={() => adjustCount(-5)} className="p-1 rounded-full hover:bg-gray-100">
-                <ChevronDown className="w-5 h-5 text-indigo-600" />
-              </button>
-              <span className="font-bold text-indigo-600 w-8 text-center">{additionalCount}</span>
-              <span className="text-gray-400 text-sm">개</span>
-              <button onClick={() => adjustCount(5)} className="p-1 rounded-full hover:bg-gray-100">
-                <ChevronUp className="w-5 h-5 text-indigo-600" />
-              </button>
+            {/* Change Stats Button */}
+            <div className="flex justify-center mb-4">
+              <Button variant="ghost" size="sm" className="text-gray-400 text-xs">
+                <RefreshCw className="w-3 h-3 mr-1" />
+                변경
+              </Button>
             </div>
-            <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={handleStartStudy}>
-              <Star className="w-4 h-4 mr-2" />
-              추가 학습
-            </Button>
-          </div>
+
+            {/* Progress Text */}
+            <div className="text-center mb-6">
+              <span className="text-3xl font-bold text-orange-500">{todayProgress}</span>
+              <span className="text-lg text-gray-400">/{todayGoal}</span>
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="space-y-3">
+              <Button className="w-full py-6 bg-indigo-600 hover:bg-indigo-700" onClick={handleStartTodayStudy}>
+                <BookOpen className="w-5 h-5 mr-2" />
+                오늘의 학습
+              </Button>
+              <Button variant="ghost" className="w-full text-gray-500" onClick={() => onStepChange("extra")}>
+                추가 학습
+              </Button>
+            </div>
+          </>
         ) : (
-          <Button className="w-full py-6 bg-indigo-600 hover:bg-indigo-700" onClick={handleStartStudy}>
-            <BookOpen className="w-5 h-5 mr-2" />
-            오늘의 학습
-          </Button>
+          <>
+            {/* Extra Study Stats */}
+            <div className="flex items-center justify-center gap-8 mb-6">
+              {/* Circular Progress */}
+              <div className="relative w-32 h-32">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" stroke="#E5E7EB" strokeWidth="8" fill="none" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke="#F97316"
+                    strokeWidth="8"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(todayProgress / (todayProgress + targetWordCount)) * 251.2} 251.2`}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-4xl">🐥</div>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500">새로운 단어</span>
+                  <span className="font-bold">
+                    {extraNew} <span className="text-gray-400 font-normal">개</span>
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500">복습할 단어</span>
+                  <span className="font-bold">
+                    {extraReview} <span className="text-gray-400 font-normal">개</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Change Stats Button */}
+            <div className="flex justify-center mb-4">
+              <Button variant="ghost" size="sm" className="text-gray-400 text-xs">
+                <RefreshCw className="w-3 h-3 mr-1" />
+                변경
+              </Button>
+            </div>
+
+            {/* Progress Text */}
+            <div className="text-center mb-6">
+              <span className="text-3xl font-bold text-orange-500">{todayProgress}</span>
+              <span className="text-lg text-gray-400">/{todayProgress + targetWordCount}</span>
+            </div>
+
+            {/* Review Ratio Row */}
+            <button
+              className="w-full flex items-center justify-between py-3 px-4 mb-4 bg-gray-50 rounded-xl"
+              onClick={handleChangeReviewRatio}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">복습 단어 비율</span>
+                <span className="text-sm font-medium">{reviewRatioPercent}%</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            </button>
+
+            {/* Word Count Adjustment & CTA */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 border rounded-xl px-3 py-2">
+                <button onClick={() => adjustCount(-5)} className="p-1 rounded-full hover:bg-gray-100">
+                  <ChevronDown className="w-5 h-5 text-indigo-600" />
+                </button>
+                <span className="font-bold text-indigo-600 w-8 text-center">{targetWordCount}</span>
+                <span className="text-gray-400 text-sm">개</span>
+                <button onClick={() => adjustCount(5)} className="p-1 rounded-full hover:bg-gray-100">
+                  <ChevronUp className="w-5 h-5 text-indigo-600" />
+                </button>
+              </div>
+              <Button className="flex-1 py-6 bg-indigo-600 hover:bg-indigo-700" onClick={handleStartExtraStudy}>
+                <Star className="w-4 h-4 mr-2" />
+                추가 학습
+              </Button>
+            </div>
+          </>
         )}
       </div>
     </div>
