@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MOCK_CARDS, FSRS_RATING } from "@/lib/api/client"
-import { startStudySession, completeStudySession, isDevMode, isLoggedIn, type SessionCard } from "@/lib/api/study"
+import { startStudySession, completeStudySession, isLoggedIn, type SessionCard } from "@/lib/api/study"
 import { getUserConfig } from "@/lib/api/user-config"
 import { Volume2, X, Mic, Lightbulb, Repeat, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -86,25 +86,7 @@ export default function LearnPage() {
         }
       }
 
-      // If DEV mode, use mock cards
-      if (isDevMode()) {
-        setCards(
-          MOCK_CARDS.slice(0, dailyGoal).map((card, i) => ({
-            id: i,
-            word: card.word,
-            pronunciation: card.pronunciation,
-            definition: card.definition,
-            partOfSpeech: "",
-            definitionEn: "",
-            exampleSentences: [],
-            isNew: true,
-          })),
-        )
-        setIsLoading(false)
-        return
-      }
-
-      // Fetch cards from API
+      // Fetch cards from API (both for logged in users and DEV/guest mode)
       try {
         const response = await startStudySession({
           new_cards_limit: Math.min(dailyGoal, 50),
@@ -119,9 +101,8 @@ export default function LearnPage() {
         }
       } catch (err) {
         console.error("[v0] Failed to start study session:", err)
-        setError(err instanceof Error ? err.message : "학습 카드를 불러오는데 실패했습니다.")
 
-        // Fallback to mock cards in case of error
+        console.log("[v0] Using fallback mock cards")
         setCards(
           MOCK_CARDS.slice(0, dailyGoal).map((card, i) => ({
             id: i,
@@ -134,9 +115,9 @@ export default function LearnPage() {
             isNew: true,
           })),
         )
-      } finally {
-        setIsLoading(false)
       }
+
+      setIsLoading(false)
     }
 
     loadCards()
@@ -253,7 +234,7 @@ export default function LearnPage() {
       }, 300)
     } else {
       // Session complete - send results to API
-      if (!isDevMode() && sessionId) {
+      if (sessionId) {
         try {
           await completeStudySession({
             cards_studied: completedCount + 1,
