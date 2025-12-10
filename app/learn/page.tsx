@@ -6,7 +6,8 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MOCK_CARDS, FSRS_RATING } from "@/lib/api/client"
-import { Volume2, X, Mic, Lightbulb, Repeat } from "lucide-react"
+import { startStudySession, completeStudySession, isDevMode, isLoggedIn, type SessionCard } from "@/lib/api/study"
+import { Volume2, X, Mic, Lightbulb, Repeat, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type AudioSettings = {
@@ -15,12 +16,29 @@ type AudioSettings = {
   soundEffects: boolean
 }
 
+function convertSessionCard(card: SessionCard) {
+  return {
+    id: card.id,
+    word: card.english_word,
+    pronunciation: card.pronunciation_ipa || "",
+    definition: card.korean_meaning,
+    partOfSpeech: card.part_of_speech || "",
+    definitionEn: card.definition_en || "",
+    exampleSentences: card.example_sentences || [],
+    isNew: card.is_new,
+  }
+}
+
 export default function LearnPage() {
   const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
-  const [cards, setCards] = useState(MOCK_CARDS)
+  const [cards, setCards] = useState<ReturnType<typeof convertSessionCard>[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [completedCount, setCompletedCount] = useState(0)
+  const [correctCount, setCorrectCount] = useState(0)
   const [showTutorial, setShowTutorial] = useState(true)
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1)
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0)
@@ -34,8 +52,88 @@ export default function LearnPage() {
     soundEffects: true,
   })
 
+  useEffect(() => {
+    const loadCards = async () => {
+      setIsLoading(true)
+      setError(null)
+
+      // Get vocabulary settings
+      const vocabSettings = localStorage.getItem("vocabularySettings")
+      let dailyGoal = 20
+
+      if (vocabSettings) {
+        try {
+          const parsed = JSON.parse(vocabSettings)
+          dailyGoal = parsed.dailyGoal || 20
+        } catch (e) {
+          console.error("Failed to parse vocabulary settings")
+        }
+      }
+
+      // Check if logged in
+      if (!isLoggedIn()) {
+        router.push("/login")
+        return
+      }
+
+      // If DEV mode, use mock cards
+      if (isDevMode()) {
+        setCards(
+          MOCK_CARDS.slice(0, dailyGoal).map((card, i) => ({
+            id: i,
+            word: card.word,
+            pronunciation: card.pronunciation,
+            definition: card.definition,
+            partOfSpeech: "",
+            definitionEn: "",
+            exampleSentences: [],
+            isNew: true,
+          })),
+        )
+        setIsLoading(false)
+        return
+      }
+
+      // Fetch cards from API
+      try {
+        const response = await startStudySession({
+          new_cards_limit: Math.min(dailyGoal, 50),
+          review_cards_limit: Math.min(dailyGoal, 100),
+        })
+
+        setSessionId(response.session_id)
+        setCards(response.cards.map(convertSessionCard))
+
+        if (response.cards.length === 0) {
+          setError("오늘 학습할 카드가 없습니다.")
+        }
+      } catch (err) {
+        console.error("[v0] Failed to start study session:", err)
+        setError(err instanceof Error ? err.message : "학습 카드를 불러오는데 실패했습니다.")
+
+        // Fallback to mock cards in case of error
+        setCards(
+          MOCK_CARDS.slice(0, dailyGoal).map((card, i) => ({
+            id: i,
+            word: card.word,
+            pronunciation: card.pronunciation,
+            definition: card.definition,
+            partOfSpeech: "",
+            definitionEn: "",
+            exampleSentences: [],
+            isNew: true,
+          })),
+        )
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadCards()
+  }, [router])
+
   const currentCard = cards[currentIndex]
-  const progress = (currentIndex / cards.length) * 100
+  const progress = cards.length > 0 ? (currentIndex / cards.length) * 100 : 0
 
   const mockExamples = [
     {
@@ -90,22 +188,19 @@ export default function LearnPage() {
       gainNode.connect(audioContext.destination)
 
       if (type === "correct") {
-        // 정답 효과음: 상승하는 두 음
-        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime) // C5
-        oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1) // E5
+        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime)
+        oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1)
         gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
         oscillator.start(audioContext.currentTime)
         oscillator.stop(audioContext.currentTime + 0.3)
       } else if (type === "incorrect") {
-        // 오답 효과음: 낮은 단일 음
         oscillator.frequency.setValueAtTime(200, audioContext.currentTime)
         gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2)
         oscillator.start(audioContext.currentTime)
         oscillator.stop(audioContext.currentTime + 0.2)
       } else if (type === "flip") {
-        // 카드 뒤집기 효과음: 짧은 클릭음
         oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
         gainNode.gain.setValueAtTime(0.1, audioContext.currentTime)
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05)
@@ -128,12 +223,17 @@ export default function LearnPage() {
     if (showTutorial) setShowTutorial(false)
   }
 
-  const handleRate = (rating: number) => {
-    if (rating === FSRS_RATING.GOOD || rating === FSRS_RATING.EASY) {
+  const handleRate = async (rating: number) => {
+    const isCorrect = rating === FSRS_RATING.GOOD || rating === FSRS_RATING.EASY
+
+    if (isCorrect) {
       playSoundEffect("correct")
+      setCorrectCount((prev) => prev + 1)
     } else {
       playSoundEffect("incorrect")
     }
+
+    setCompletedCount((prev) => prev + 1)
 
     if (currentIndex < cards.length - 1) {
       setIsFlipped(false)
@@ -141,15 +241,27 @@ export default function LearnPage() {
         setCurrentIndex((prev) => prev + 1)
         setCurrentExampleIndex(0)
       }, 300)
-      setCompletedCount((prev) => prev + 1)
     } else {
+      // Session complete - send results to API
+      if (!isDevMode() && sessionId) {
+        try {
+          await completeStudySession({
+            cards_studied: completedCount + 1,
+            cards_correct: correctCount + (isCorrect ? 1 : 0),
+          })
+        } catch (err) {
+          console.error("[v0] Failed to complete session:", err)
+        }
+      }
       router.push("/dashboard")
     }
   }
 
   const playAudio = (e: React.MouseEvent) => {
     e.stopPropagation()
-    playAudioForWord(currentCard.word)
+    if (currentCard) {
+      playAudioForWord(currentCard.word)
+    }
   }
 
   const regenerateExample = (e: React.MouseEvent) => {
@@ -173,7 +285,38 @@ export default function LearnPage() {
     }
   }
 
-  const currentExample = mockExamples[currentExampleIndex]
+  const currentExample = currentCard?.exampleSentences?.[currentExampleIndex] || mockExamples[currentExampleIndex]
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" />
+        <p className="text-muted-foreground">학습 카드를 불러오는 중...</p>
+      </div>
+    )
+  }
+
+  if (error && cards.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground">{error}</p>
+          <Button onClick={() => router.push("/dashboard")}>대시보드로 돌아가기</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!currentCard) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground">학습할 카드가 없습니다.</p>
+          <Button onClick={() => router.push("/dashboard")}>대시보드로 돌아가기</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -231,6 +374,9 @@ export default function LearnPage() {
                   </button>
                 </div>
                 <p className="text-muted-foreground font-mono text-sm">{currentCard.pronunciation}</p>
+                {currentCard.partOfSpeech && (
+                  <p className="text-xs text-muted-foreground">({currentCard.partOfSpeech})</p>
+                )}
               </div>
 
               <div className="flex gap-1 text-xs">
@@ -257,6 +403,9 @@ export default function LearnPage() {
 
               <div className="space-y-1">
                 <p className="text-2xl font-bold text-indigo-600">{currentCard.definition}</p>
+                {currentCard.definitionEn && (
+                  <p className="text-sm text-muted-foreground">{currentCard.definitionEn}</p>
+                )}
               </div>
 
               <div className="bg-muted p-4 rounded-xl w-full text-left space-y-3">
