@@ -136,6 +136,15 @@ export default function LoginPage() {
           </svg>
           Google로 계속하기
         </Button>
+
+        <Button
+          variant="ghost"
+          className="w-full py-6 text-gray-400 hover:text-gray-600"
+          type="button"
+          onClick={() => router.push("/dashboard")}
+        >
+          [DEV] Skip
+        </Button>
       </div>
     </div>
   )
