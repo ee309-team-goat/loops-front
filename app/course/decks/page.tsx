@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, Check, Minus } from "lucide-react"
+import { ChevronLeft, ChevronRight, Check, Minus, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useCourseStore } from "@/store/course-store"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useCourseStore, type ReviewScope } from "@/store/course-store"
 import { MOCK_CATEGORIES, type Category } from "@/lib/mock-decks"
 
 type SelectionStatus = "unchecked" | "checked" | "indeterminate"
@@ -23,7 +25,22 @@ function getSelectedCount(category: Category, selectedIds: string[]): number {
 
 export default function CategoryListPage() {
   const router = useRouter()
-  const { customSelectedDeckIds, setSelectedDeckIds } = useCourseStore()
+  const { customSelectedDeckIds, setSelectedDeckIds, reviewScope, setReviewScope } = useCourseStore()
+
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [tempReviewScope, setTempReviewScope] = useState<ReviewScope>(reviewScope)
+
+  const reviewScopeText = reviewScope === "selected_decks" ? "선택한 단어장만" : "학습한 모든 단어"
+
+  const handleOpenSheet = () => {
+    setTempReviewScope(reviewScope)
+    setIsSheetOpen(true)
+  }
+
+  const handleConfirmReviewScope = () => {
+    setReviewScope(tempReviewScope)
+    setIsSheetOpen(false)
+  }
 
   const handleCategoryToggle = (category: Category) => {
     const deckIds = category.decks.map((d) => d.id)
@@ -144,6 +161,18 @@ export default function CategoryListPage() {
         </div>
       </div>
 
+      <div className="bg-white border-t border-gray-100 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">복습 범위</span>
+            <span className="text-sm text-gray-700">{reviewScopeText}</span>
+          </div>
+          <button onClick={handleOpenSheet} className="p-2 text-gray-400 hover:text-gray-600">
+            <Pencil className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
       {/* Bottom CTA */}
       <div className="p-4 bg-white border-t border-gray-100">
         <div className="flex gap-3">
@@ -163,6 +192,62 @@ export default function CategoryListPage() {
           </Button>
         </div>
       </div>
+
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader className="text-center pb-4">
+            <SheetTitle>복습 범위 설정</SheetTitle>
+          </SheetHeader>
+
+          <div className="space-y-3 pb-6">
+            {/* Option: 선택한 단어장만 */}
+            <button
+              onClick={() => setTempReviewScope("selected_decks")}
+              className={`w-full p-4 rounded-xl border-2 text-left transition-colors ${
+                tempReviewScope === "selected_decks" ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    tempReviewScope === "selected_decks" ? "border-indigo-500" : "border-gray-300"
+                  }`}
+                >
+                  {tempReviewScope === "selected_decks" && <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />}
+                </div>
+                <span className="font-semibold text-gray-900">선택한 단어장만</span>
+                <span className="text-xs font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">권장</span>
+              </div>
+              <p className="text-sm text-gray-500 ml-7">선택한 단어장의 어휘만 복습해요.</p>
+            </button>
+
+            {/* Option: 학습한 모든 단어 */}
+            <button
+              onClick={() => setTempReviewScope("all_learned")}
+              className={`w-full p-4 rounded-xl border-2 text-left transition-colors ${
+                tempReviewScope === "all_learned" ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    tempReviewScope === "all_learned" ? "border-indigo-500" : "border-gray-300"
+                  }`}
+                >
+                  {tempReviewScope === "all_learned" && <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />}
+                </div>
+                <span className="font-semibold text-gray-900">학습한 모든 단어</span>
+              </div>
+              <p className="text-sm text-gray-500 ml-7">선택한 단어장 포함, 지금까지 배운 모든 어휘를 복습해요.</p>
+            </button>
+          </div>
+
+          {/* Confirm Button */}
+          <Button className="w-full py-6 bg-indigo-600 hover:bg-indigo-700" onClick={handleConfirmReviewScope}>
+            설정 완료
+          </Button>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
