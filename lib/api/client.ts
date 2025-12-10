@@ -2,6 +2,9 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
+console.log("[v0] API_BASE_URL:", API_BASE_URL)
+console.log("[v0] NEXT_PUBLIC_API_URL env:", process.env.NEXT_PUBLIC_API_URL)
+
 export class ApiError extends Error {
   status: number
   detail: string
@@ -19,11 +22,15 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null
 
   try {
+    console.log("[v0] Attempting token refresh to:", `${API_BASE_URL}/api/v1/auth/refresh`)
+
     const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
     })
+
+    console.log("[v0] Refresh response status:", response.status)
 
     if (response.ok) {
       const data = await response.json()
@@ -57,49 +64,76 @@ export async function apiClient<T>(
     headers["Authorization"] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
+  const fullUrl = `${API_BASE_URL}${endpoint}`
+
+  console.log("[v0] API Request:", {
+    url: fullUrl,
+    method: options.method || "GET",
+    hasToken: !!token,
   })
 
-  // 401 에러 시 토큰 갱신 후 재시도
-  if (response.status === 401 && retryOnUnauthorized) {
-    const newToken = await refreshAccessToken()
-    if (newToken) {
-      headers["Authorization"] = `Bearer ${newToken}`
-      const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers,
-      })
+  try {
+    const response = await fetch(fullUrl, {
+      ...options,
+      headers,
+    })
 
-      if (!retryResponse.ok) {
-        const errorData = await retryResponse.json().catch(() => ({}))
-        throw new ApiError(retryResponse.status, errorData.detail || "요청에 실패했습니다.")
-      }
+    console.log("[v0] API Response:", {
+      url: fullUrl,
+      status: response.status,
+      ok: response.ok,
+    })
 
-      return retryResponse.json()
-    } else {
-      // 토큰 갱신 실패 시 로그아웃 처리
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("access_token")
-        localStorage.removeItem("refresh_token")
-        localStorage.removeItem("user")
+    // 401 에러 시 토큰 갱신 후 재시도
+    if (response.status === 401 && retryOnUnauthorized) {
+      console.log("[v0] Got 401, attempting token refresh...")
+      const newToken = await refreshAccessToken()
+      if (newToken) {
+        headers["Authorization"] = `Bearer ${newToken}`
+        const retryResponse = await fetch(fullUrl, {
+          ...options,
+          headers,
+        })
+
+        if (!retryResponse.ok) {
+          const errorData = await retryResponse.json().catch(() => ({}))
+          throw new ApiError(retryResponse.status, errorData.detail || "요청에 실패했습니다.")
+        }
+
+        return retryResponse.json()
+      } else {
+        // 토큰 갱신 실패 시 로그아웃 처리
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("access_token")
+          localStorage.removeItem("refresh_token")
+          localStorage.removeItem("user")
+        }
+        throw new ApiError(401, "세션이 만료되었습니다. 다시 로그인해주세요.")
       }
-      throw new ApiError(401, "세션이 만료되었습니다. 다시 로그인해주세요.")
     }
-  }
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new ApiError(response.status, errorData.detail || "요청에 실패했습니다.")
-  }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error("[v0] API Error:", {
+        status: response.status,
+        detail: errorData.detail,
+      })
+      throw new ApiError(response.status, errorData.detail || "요청에 실패했습니다.")
+    }
 
-  // 204 No Content 처리
-  if (response.status === 204) {
-    return {} as T
-  }
+    // 204 No Content 처리
+    if (response.status === 204) {
+      return {} as T
+    }
 
-  return response.json()
+    return response.json()
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+    console.error("[v0] Network error:", error)
+    throw new ApiError(0, "서버 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.")
+  }
 }
 
 // 기존 fetchClient 호환 유지
