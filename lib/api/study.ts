@@ -75,6 +75,7 @@ function getAccessToken(): string | null {
 
 /**
  * 학습 세션 시작 - 학습할 카드 목록을 가져옵니다
+ * DEV/게스트 모드에서는 토큰 없이 시도
  */
 export async function startStudySession(params?: SessionStartRequest): Promise<SessionStartResponse> {
   const token = getAccessToken()
@@ -83,16 +84,17 @@ export async function startStudySession(params?: SessionStartRequest): Promise<S
     throw new Error("API URL이 설정되지 않았습니다.")
   }
 
-  if (!token) {
-    throw new Error("로그인이 필요합니다.")
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
   }
 
   const response = await fetch(`${API_URL}/api/v1/study/session/start`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify(params || {}),
   })
 
@@ -110,6 +112,7 @@ export async function startStudySession(params?: SessionStartRequest): Promise<S
 
 /**
  * 학습 세션 완료 - 학습 결과를 저장합니다
+ * DEV/게스트 모드에서는 토큰 없이 시도
  */
 export async function completeStudySession(data: SessionCompleteRequest): Promise<SessionCompleteResponse> {
   const token = getAccessToken()
@@ -118,16 +121,17 @@ export async function completeStudySession(data: SessionCompleteRequest): Promis
     throw new Error("API URL이 설정되지 않았습니다.")
   }
 
-  if (!token) {
-    throw new Error("로그인이 필요합니다.")
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
   }
 
   const response = await fetch(`${API_URL}/api/v1/study/session/complete`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify(data),
   })
 
