@@ -1,57 +1,118 @@
 "use client"
 
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, Check, Minus } from "lucide-react"
+import { ChevronLeft, Check, AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useCourseStore } from "@/store/course-store"
-import { MOCK_CATEGORIES, type Category } from "@/lib/mock-decks"
+import { getDecks, getSelectedDecks, updateSelectedDecks, type Deck } from "@/lib/api/decks"
 
-type SelectionStatus = "unchecked" | "checked" | "indeterminate"
-
-function getSelectionStatus(category: Category, selectedIds: string[]): SelectionStatus {
-  const deckIds = category.decks.map((d) => d.id)
-  const selectedCount = deckIds.filter((id) => selectedIds.includes(id)).length
-  if (selectedCount === 0) return "unchecked"
-  if (selectedCount === deckIds.length) return "checked"
-  return "indeterminate"
-}
-
-function getSelectedCount(category: Category, selectedIds: string[]): number {
-  const deckIds = category.decks.map((d) => d.id)
-  return deckIds.filter((id) => selectedIds.includes(id)).length
+interface SelectionState {
+  selectAll: boolean
+  selectedIds: Set<number>
 }
 
 export default function CategoryListPage() {
   const router = useRouter()
-  const { customSelectedDeckIds, setSelectedDeckIds } = useCourseStore()
 
-  const handleCategoryToggle = (category: Category) => {
-    const deckIds = category.decks.map((d) => d.id)
-    const status = getSelectionStatus(category, customSelectedDeckIds)
+  const [decks, setDecks] = useState<Deck[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-    if (status === "checked") {
-      // Remove all decks from this category
-      setSelectedDeckIds(customSelectedDeckIds.filter((id) => !deckIds.includes(id)))
+  const [selection, setSelection] = useState<SelectionState>({
+    selectAll: false,
+    selectedIds: new Set(),
+  })
+
+  // Derived state
+  const allIds = decks.map((d) => d.id)
+  const isAllChecked = selection.selectAll || (decks.length > 0 && selection.selectedIds.size === decks.length)
+
+  const effectiveChecked = useCallback(
+    (id: number) => {
+      return selection.selectAll ? true : selection.selectedIds.has(id)
+    },
+    [selection.selectAll, selection.selectedIds],
+  )
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const [loadedDecks, selectedState] = await Promise.all([getDecks(), getSelectedDecks()])
+
+      setDecks(loadedDecks)
+
+      const initialSelection: SelectionState = {
+        selectAll: selectedState.select_all,
+        selectedIds: new Set(selectedState.deck_ids),
+      }
+      setSelection(initialSelection)
+    } catch {
+      setError("서버 연결에 실패했습니다. 다시 시도해주세요.")
+      setDecks([])
+      setSelection({ selectAll: false, selectedIds: new Set() })
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handleSelectAllChange = () => {
+    if (isAllChecked) {
+      setSelection({ selectAll: false, selectedIds: new Set() })
     } else {
-      // Add all decks from this category (avoiding duplicates)
-      const newIds = [...new Set([...customSelectedDeckIds, ...deckIds])]
-      setSelectedDeckIds(newIds)
+      setSelection({ selectAll: true, selectedIds: new Set() })
     }
   }
 
-  const handleCategoryDetail = (categoryId: string) => {
-    router.push(`/course/decks/${categoryId}`)
+  const handleDeckToggle = (id: number) => {
+    if (selection.selectAll) {
+      const newIds = new Set(allIds.filter((deckId) => deckId !== id))
+      setSelection({ selectAll: false, selectedIds: newIds })
+    } else {
+      const newIds = new Set(selection.selectedIds)
+      if (newIds.has(id)) {
+        newIds.delete(id)
+      } else {
+        newIds.add(id)
+      }
+      setSelection({ selectAll: false, selectedIds: newIds })
+    }
   }
 
   const handleBack = () => {
     router.back()
   }
 
-  const handleComplete = () => {
-    router.push("/course/change")
+  const handleComplete = async () => {
+    setSaving(true)
+    setError(null)
+
+    try {
+      const isAll = selection.selectAll || (decks.length > 0 && selection.selectedIds.size === decks.length)
+
+      if (isAll) {
+        await updateSelectedDecks({ select_all: true })
+      } else {
+        await updateSelectedDecks({ select_all: false, deck_ids: Array.from(selection.selectedIds) })
+      }
+
+      router.push("/course/change")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "저장에 실패했습니다.")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const totalSelected = customSelectedDeckIds.length
+  const getDeckName = (deck: Deck) => deck.name || deck.title || `Deck ${deck.id}`
+
+  const totalSelected = selection.selectAll ? decks.length : selection.selectedIds.size
   const isCompleteEnabled = totalSelected > 0
 
   return (
@@ -69,83 +130,90 @@ export default function CategoryListPage() {
         <h1 className="text-lg font-medium text-gray-900 text-center">단어장을 선택하세요.</h1>
       </div>
 
-      {/* Category List */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="divide-y divide-gray-100">
-          {MOCK_CATEGORIES.map((category) => {
-            const status = getSelectionStatus(category, customSelectedDeckIds)
-            const selectedCount = getSelectedCount(category, customSelectedDeckIds)
-            const totalCount = category.decks.length
-
-            return (
-              <div key={category.id} className="bg-white">
-                <div className="flex items-center px-4 py-4">
-                  {/* Checkbox Area */}
-                  <button
-                    onClick={() => handleCategoryToggle(category)}
-                    className={`w-6 h-6 rounded border-2 flex items-center justify-center mr-3 transition-colors ${
-                      status === "checked"
-                        ? "bg-indigo-500 border-indigo-500"
-                        : status === "indeterminate"
-                          ? "bg-indigo-500 border-indigo-500"
-                          : "border-gray-300 bg-white"
-                    }`}
-                  >
-                    {status === "checked" && <Check className="w-4 h-4 text-white" />}
-                    {status === "indeterminate" && <Minus className="w-4 h-4 text-white" />}
-                  </button>
-
-                  {/* Icon */}
-                  <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center mr-3 text-xl">
-                    {category.icon}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">{category.title}</span>
-                    </div>
-                    <p className="text-sm text-gray-500 truncate">{category.description}</p>
-                    {status === "indeterminate" && (
-                      <p className="text-xs text-indigo-600 mt-1">
-                        일부 선택됨 {selectedCount}/{totalCount}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Action Area */}
-                  <div className="flex items-center gap-2 ml-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleCategoryDetail(category.id)
-                      }}
-                      className="p-2 text-gray-400 hover:text-gray-600"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Action Text */}
-                <div className="px-4 pb-3 -mt-1">
-                  <button
-                    onClick={() => handleCategoryToggle(category)}
-                    className={`text-sm font-medium ml-auto block text-right ${
-                      status === "unchecked" ? "text-indigo-600" : "text-red-500"
-                    }`}
-                  >
-                    {status === "unchecked" ? "+ 코스에 추가" : "- 코스에서 제외"}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+      {/* Error Message */}
+      {error && (
+        <div className="mx-4 mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="text-sm text-red-700">{error}</span>
+          </div>
+          {decks.length === 0 && !loading && (
+            <Button variant="outline" size="sm" onClick={loadData} className="mt-2 w-full bg-transparent">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              다시 시도
+            </Button>
+          )}
         </div>
+      )}
+
+      {/* Select All */}
+      <div className="bg-white mx-4 mt-4 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <button
+              onClick={handleSelectAllChange}
+              disabled={loading || decks.length === 0}
+              className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
+                isAllChecked ? "bg-indigo-500 border-indigo-500" : "border-gray-300 bg-white"
+              } disabled:opacity-50`}
+            >
+              {isAllChecked && <Check className="w-4 h-4 text-white" />}
+            </button>
+            <span className="font-medium text-gray-900">전체 선택</span>
+          </label>
+        </div>
+      </div>
+
+      {/* Deck List */}
+      <div className="flex-1 overflow-y-auto px-4 mt-2">
+        {loading && (
+          <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="px-4 py-4 flex items-center gap-3">
+                <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 bg-gray-200 rounded w-40 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!loading && decks.length === 0 && !error && (
+          <div className="bg-white rounded-xl px-4 py-8 text-center text-gray-500">덱이 없습니다.</div>
+        )}
+
+        {!loading && decks.length > 0 && (
+          <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100">
+            {decks.map((deck) => {
+              const isChecked = effectiveChecked(deck.id)
+
+              return (
+                <div key={deck.id} className="bg-white">
+                  <div className="flex items-center px-4 py-4">
+                    {/* Checkbox Area */}
+                    <button
+                      onClick={() => handleDeckToggle(deck.id)}
+                      className={`w-6 h-6 rounded border-2 flex items-center justify-center mr-3 transition-colors ${
+                        isChecked ? "bg-indigo-500 border-indigo-500" : "border-gray-300 bg-white"
+                      }`}
+                    >
+                      {isChecked && <Check className="w-4 h-4 text-white" />}
+                    </button>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-gray-900">{getDeckName(deck)}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Bottom CTA */}
       <div className="p-4 bg-white border-t border-gray-100">
+        <div className="text-center text-sm text-gray-500 mb-3">{totalSelected}개 선택됨</div>
         <div className="flex gap-3">
           <Button
             variant="secondary"
@@ -157,9 +225,9 @@ export default function CategoryListPage() {
           <Button
             className="flex-1 py-6 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:text-gray-500"
             onClick={handleComplete}
-            disabled={!isCompleteEnabled}
+            disabled={!isCompleteEnabled || saving}
           >
-            선택 완료
+            {saving ? "저장 중..." : "선택 완료"}
           </Button>
         </div>
       </div>
