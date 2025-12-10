@@ -28,8 +28,6 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     throw new Error("API URL이 설정되지 않았습니다. 환경 변수를 확인해주세요.")
   }
 
-  console.log("[v0] Login API URL:", `${API_BASE_URL}/api/v1/auth/login`)
-
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
     method: "POST",
     headers: {
@@ -40,7 +38,6 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
 
   const contentType = response.headers.get("content-type")
   if (!contentType || !contentType.includes("application/json")) {
-    console.log("[v0] Response is not JSON:", await response.text())
     throw new Error("서버 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.")
   }
 
@@ -72,9 +69,6 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
     throw new Error("API URL이 설정되지 않았습니다. 환경 변수를 확인해주세요.")
   }
 
-  console.log("[v0] Register API URL:", `${API_BASE_URL}/api/v1/auth/register`)
-  console.log("[v0] Register data:", { email: data.email, username: data.username })
-
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
     method: "POST",
     headers: {
@@ -85,8 +79,6 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
 
   const contentType = response.headers.get("content-type")
   if (!contentType || !contentType.includes("application/json")) {
-    const textResponse = await response.text()
-    console.log("[v0] Response is not JSON:", textResponse)
     throw new Error("서버 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.")
   }
 
@@ -131,14 +123,12 @@ export async function refreshToken(): Promise<AuthResponse> {
   })
 
   if (!response.ok) {
-    // 리프레시 토큰도 만료된 경우 로그아웃 처리
     logout()
     throw new Error("세션이 만료되었습니다. 다시 로그인해주세요.")
   }
 
   const authResponse: AuthResponse = await response.json()
 
-  // 새 토큰으로 업데이트
   localStorage.setItem("access_token", authResponse.access_token)
   localStorage.setItem("refresh_token", authResponse.refresh_token)
   localStorage.setItem("user", JSON.stringify(authResponse.user))
@@ -151,13 +141,16 @@ export function logout(): void {
   localStorage.removeItem("refresh_token")
   localStorage.removeItem("user")
   localStorage.removeItem("authInfo")
+  localStorage.removeItem("dev_mode")
 }
 
 export function isLoggedIn(): boolean {
-  return !!localStorage.getItem("access_token")
+  if (typeof window === "undefined") return false
+  return !!localStorage.getItem("access_token") || localStorage.getItem("dev_mode") === "true"
 }
 
 export function getStoredUser(): UserRead | null {
+  if (typeof window === "undefined") return null
   const userStr = localStorage.getItem("user")
   if (!userStr) return null
   try {
@@ -165,4 +158,9 @@ export function getStoredUser(): UserRead | null {
   } catch {
     return null
   }
+}
+
+export function isDevMode(): boolean {
+  if (typeof window === "undefined") return false
+  return localStorage.getItem("dev_mode") === "true"
 }

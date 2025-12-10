@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, MessageCircle, Copy, Check, Plus, Mail, User, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { fetchCurrentUser, updateUserProfile, deleteUserAccount, type UserRead } from "@/lib/api/user"
-import { logout, getStoredUser, isLoggedIn } from "@/lib/api/auth"
+import { logout, isLoggedIn, isDevMode as checkDevMode } from "@/lib/api/auth"
+import { useAuth } from "@/contexts/auth-context"
 
 type AuthProvider = "guest" | "email" | "google" | "kakao" | "naver" | "apple" | "facebook" | "other"
 
@@ -55,7 +56,7 @@ const PROVIDER_STYLES: Record<
           fill="#FBBC05"
         />
         <path
-          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
           fill="#EA4335"
         />
       </svg>
@@ -116,73 +117,70 @@ function getProviderStyle(type: AuthProvider) {
 
 export default function AccountPage() {
   const router = useRouter()
+  const { user: authUser, isDevMode: contextDevMode, logout: authLogout, updateUser, refreshUser } = useAuth()
+
   const [copied, setCopied] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [learningPurpose, setLearningPurpose] = useState("")
   const [showPurposeSelect, setShowPurposeSelect] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
-  const [user, setUser] = useState<UserRead | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState<UserRead | null>(authUser)
+  const [isLoading, setIsLoading] = useState(!authUser)
   const [error, setError] = useState<string | null>(null)
-  const [isDevMode, setIsDevMode] = useState(false)
+  const [isDevMode, setIsDevMode] = useState(contextDevMode)
 
   useEffect(() => {
     async function loadUserData() {
       setIsLoading(true)
       setError(null)
 
+      // DEV 모드 체크
+      if (checkDevMode()) {
+        setIsDevMode(true)
+        setUser({
+          id: 0,
+          email: "devs@kaist.ac.kr",
+          username: "DEV User",
+          is_active: true,
+          select_all_decks: true,
+          daily_goal: 20,
+          timezone: "Asia/Seoul",
+          theme: "light",
+          notification_enabled: true,
+          current_streak: 0,
+          longest_streak: 0,
+          last_study_date: null,
+          total_study_time_minutes: 0,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+          provider: "guest",
+        })
+        const savedPurpose = localStorage.getItem("learningPurpose")
+        setLearningPurpose(savedPurpose || "미설정")
+        setIsLoading(false)
+        return
+      }
+
+      // 실제 API 호출
       if (isLoggedIn()) {
         try {
           const userData = await fetchCurrentUser()
           setUser(userData)
+          updateUser(userData)
           setLearningPurpose(userData.learning_purpose || localStorage.getItem("learningPurpose") || "미설정")
           setIsDevMode(false)
           setIsLoading(false)
           return
         } catch (err) {
-          // API 실패 시 저장된 사용자 정보 사용
-          const storedUser = getStoredUser()
-          if (storedUser) {
-            setUser(storedUser)
-            setLearningPurpose(storedUser.learning_purpose || localStorage.getItem("learningPurpose") || "미설정")
-            setIsDevMode(false)
+          console.error("[v0] Failed to fetch user:", err)
+          // 401 에러 시 로그인 페이지로 이동
+          if (err instanceof Error && err.message.includes("세션이 만료")) {
+            setError("세션이 만료되었습니다. 다시 로그인해주세요.")
             setIsLoading(false)
             return
           }
-        }
-      }
-
-      const savedAuth = localStorage.getItem("authInfo")
-      if (savedAuth) {
-        try {
-          const authInfo = JSON.parse(savedAuth)
-          if (authInfo.type === "guest") {
-            setIsDevMode(true)
-            setUser({
-              id: 0,
-              email: "devs@kaist.ac.kr",
-              username: "DEV User",
-              is_active: true,
-              select_all_decks: true,
-              daily_goal: 20,
-              timezone: "Asia/Seoul",
-              theme: "light",
-              notification_enabled: true,
-              current_streak: 0,
-              longest_streak: 0,
-              last_study_date: null,
-              total_study_time_minutes: 0,
-              created_at: new Date().toISOString(),
-              updated_at: null,
-              provider: "guest",
-            })
-            const savedPurpose = localStorage.getItem("learningPurpose")
-            setLearningPurpose(savedPurpose || "미설정")
-            setIsLoading(false)
-            return
-          }
-        } catch {
-          // JSON 파싱 실패
+          setError("사용자 정보를 불러오는데 실패했습니다.")
         }
       }
 
@@ -192,7 +190,7 @@ export default function AccountPage() {
     }
 
     loadUserData()
-  }, [])
+  }, [updateUser])
 
   const accountCode = user ? `LOOPS-${String(user.id).padStart(8, "0")}` : ""
 
@@ -203,7 +201,14 @@ export default function AccountPage() {
   }
 
   const handleLogout = async () => {
-    logout()
+    try {
+      logout()
+      authLogout()
+    } catch (err) {
+      console.error("[v0] Logout error:", err)
+      // 에러가 나도 로컬 정리는 진행
+      logout()
+    }
     router.push("/")
   }
 
@@ -215,6 +220,7 @@ export default function AccountPage() {
       localStorage.clear()
       router.push("/")
     } catch (err) {
+      console.error("[v0] Delete account error:", err)
       alert("계정 삭제에 실패했습니다. 다시 시도해주세요.")
     }
   }
@@ -222,16 +228,22 @@ export default function AccountPage() {
   const handlePurposeSelect = async (purpose: string) => {
     setLearningPurpose(purpose)
     setShowPurposeSelect(false)
+    setIsSaving(true)
 
     localStorage.setItem("learningPurpose", purpose)
 
     if (!isDevMode && user) {
       try {
-        await updateUserProfile(user.id, { learning_purpose: purpose })
+        const updatedUser = await updateUserProfile(user.id, { learning_purpose: purpose })
+        setUser(updatedUser)
+        updateUser(updatedUser)
       } catch (err) {
-        console.log("학습 목적 저장 실패 (API 미지원 가능성)")
+        console.error("[v0] Failed to save learning purpose:", err)
+        // 실패해도 로컬에는 저장됨
       }
     }
+
+    setIsSaving(false)
   }
 
   const purposes = ["취업/시험 준비", "업무/실무 활용", "여행/취미", "기타"]

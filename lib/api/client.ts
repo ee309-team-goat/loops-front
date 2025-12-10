@@ -1,14 +1,60 @@
-// API 클라이언트 래퍼
+// API 클라이언트 래퍼 - 중앙화된 에러 핸들링 및 자동 토큰 갱신
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
-export async function fetchClient<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
+export class ApiError extends Error {
+  status: number
+  detail: string
 
-  const headers = {
+  constructor(status: number, detail: string) {
+    super(detail)
+    this.status = status
+    this.detail = detail
+    this.name = "ApiError"
+  }
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null
+  if (!refreshToken) return null
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      localStorage.setItem("access_token", data.access_token)
+      localStorage.setItem("refresh_token", data.refresh_token)
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user))
+      }
+      return data.access_token
+    }
+  } catch (error) {
+    console.error("[v0] Token refresh failed:", error)
+  }
+
+  return null
+}
+
+export async function apiClient<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  retryOnUnauthorized = true,
+): Promise<T> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
+
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
+  }
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -16,12 +62,49 @@ export async function fetchClient<T>(endpoint: string, options: RequestInit = {}
     headers,
   })
 
+  // 401 에러 시 토큰 갱신 후 재시도
+  if (response.status === 401 && retryOnUnauthorized) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      headers["Authorization"] = `Bearer ${newToken}`
+      const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+      })
+
+      if (!retryResponse.ok) {
+        const errorData = await retryResponse.json().catch(() => ({}))
+        throw new ApiError(retryResponse.status, errorData.detail || "요청에 실패했습니다.")
+      }
+
+      return retryResponse.json()
+    } else {
+      // 토큰 갱신 실패 시 로그아웃 처리
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("access_token")
+        localStorage.removeItem("refresh_token")
+        localStorage.removeItem("user")
+      }
+      throw new ApiError(401, "세션이 만료되었습니다. 다시 로그인해주세요.")
+    }
+  }
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.detail || "API request failed")
+    throw new ApiError(response.status, errorData.detail || "요청에 실패했습니다.")
+  }
+
+  // 204 No Content 처리
+  if (response.status === 204) {
+    return {} as T
   }
 
   return response.json()
+}
+
+// 기존 fetchClient 호환 유지
+export async function fetchClient<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return apiClient<T>(endpoint, options)
 }
 
 export const FSRS_RATING = {

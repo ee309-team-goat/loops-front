@@ -1,6 +1,8 @@
 // API 클라이언트 - 사용자 정보 관련
 // 백엔드 API와 연동하여 사용자 정보를 가져옵니다.
 
+import { apiClient } from "./client"
+
 export interface UserRead {
   id: number
   email: string
@@ -17,9 +19,8 @@ export interface UserRead {
   total_study_time_minutes: number
   created_at: string
   updated_at: string | null
-  // 아래 필드는 백엔드 추가 후 사용 가능
-  provider?: string // google, kakao, naver, apple, email 등
-  learning_purpose?: string // 학습 목적
+  provider?: string
+  learning_purpose?: string
 }
 
 export interface UserUpdate {
@@ -32,107 +33,60 @@ export interface UserUpdate {
   learning_purpose?: string
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
-
 export async function fetchCurrentUser(): Promise<UserRead> {
-  const accessToken = localStorage.getItem("access_token")
-
-  if (!accessToken) {
-    throw new Error("NO_TOKEN")
-  }
-
-  const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-  })
-
-  if (response.status === 401) {
-    throw new Error("UNAUTHORIZED")
-  }
-
-  if (!response.ok) {
-    throw new Error("FETCH_FAILED")
-  }
-
-  return response.json()
+  return apiClient<UserRead>("/api/v1/users/me", { method: "GET" })
 }
 
 export async function updateUserProfile(userId: number, data: UserUpdate): Promise<UserRead> {
-  const accessToken = localStorage.getItem("access_token")
-
-  if (!accessToken) {
-    throw new Error("NO_TOKEN")
-  }
-
-  const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}`, {
+  return apiClient<UserRead>(`/api/v1/users/${userId}`, {
     method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   })
-
-  if (response.status === 401) {
-    throw new Error("UNAUTHORIZED")
-  }
-
-  if (response.status === 403) {
-    throw new Error("FORBIDDEN")
-  }
-
-  if (!response.ok) {
-    throw new Error("UPDATE_FAILED")
-  }
-
-  return response.json()
 }
 
 export async function deleteUserAccount(userId: number): Promise<void> {
-  const accessToken = localStorage.getItem("access_token")
-
-  if (!accessToken) {
-    throw new Error("NO_TOKEN")
-  }
-
-  const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  })
-
-  if (response.status === 401) {
-    throw new Error("UNAUTHORIZED")
-  }
-
-  if (response.status === 403) {
-    throw new Error("FORBIDDEN")
-  }
-
-  if (!response.ok) {
-    throw new Error("DELETE_FAILED")
-  }
+  await apiClient<void>(`/api/v1/users/${userId}`, { method: "DELETE" })
 }
 
 export async function logoutUser(): Promise<void> {
-  const accessToken = localStorage.getItem("access_token")
-
-  if (!accessToken) {
-    return
-  }
-
   try {
-    await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
+    await apiClient<void>("/api/v1/auth/logout", { method: "POST" }, false)
   } catch {
-    // 로그아웃 실패해도 로컬 토큰은 삭제
+    // 로그아웃 실패해도 로컬 토큰은 삭제됨
   }
+}
+
+export interface StreakInfo {
+  current_streak: number
+  longest_streak: number
+  last_study_date: string | null
+  streak_dates: string[]
+}
+
+export async function fetchUserStreak(): Promise<StreakInfo> {
+  return apiClient<StreakInfo>("/api/v1/users/me/streak", { method: "GET" })
+}
+
+export interface TodayProgress {
+  new_cards_studied: number
+  review_cards_studied: number
+  total_cards_studied: number
+  daily_goal: number
+  goal_achieved: boolean
+  study_time_minutes: number
+}
+
+export async function fetchTodayProgress(): Promise<TodayProgress> {
+  return apiClient<TodayProgress>("/api/v1/users/me/today-progress", { method: "GET" })
+}
+
+export interface UserLevel {
+  level: number
+  experience: number
+  next_level_experience: number
+  cefr_level: string
+}
+
+export async function fetchUserLevel(): Promise<UserLevel> {
+  return apiClient<UserLevel>("/api/v1/users/me/level", { method: "GET" })
 }
