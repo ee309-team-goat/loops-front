@@ -3,8 +3,17 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X } from "lucide-react"
+import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { apiFetch } from "@/lib/api/http"
+
+interface UserProfile {
+  nickname: string
+  motto: string
+  total_study_time: number
+  consecutive_days: number
+  accumulated_days: number
+}
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -16,16 +25,33 @@ export default function ProfilePage() {
   const [isEditingMotto, setIsEditingMotto] = useState(false)
   const [editMottoValue, setEditMottoValue] = useState("")
 
+  const [totalStudyTime, setTotalStudyTime] = useState<number>(0)
+  const [consecutiveDays, setConsecutiveDays] = useState<number>(0)
+  const [accumulatedDays, setAccumulatedDays] = useState<number>(0)
+
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+
   useEffect(() => {
-    const savedNickname = localStorage.getItem("userNickname")
-    if (savedNickname) {
-      setNickname(savedNickname)
+    const fetchProfile = async () => {
+      try {
+        const data = await apiFetch<UserProfile>("/api/v1/users/me", {
+          method: "GET",
+          auth: true,
+        })
+        setNickname(data.nickname || "me")
+        setMotto(data.motto || "Every word you learn opens a new door.")
+        setTotalStudyTime(data.total_study_time || 0)
+        setConsecutiveDays(data.consecutive_days || 0)
+        setAccumulatedDays(data.accumulated_days || 0)
+      } catch (error) {
+        console.error("Failed to fetch profile:", error)
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    const savedMotto = localStorage.getItem("userMotto")
-    if (savedMotto) {
-      setMotto(savedMotto)
-    }
+    fetchProfile()
   }, [])
 
   const handleEditNickname = () => {
@@ -33,10 +59,23 @@ export default function ProfilePage() {
     setIsEditingNickname(true)
   }
 
-  const handleSaveNickname = () => {
+  const handleSaveNickname = async () => {
     if (editNicknameValue.trim()) {
-      setNickname(editNicknameValue.trim())
-      localStorage.setItem("userNickname", editNicknameValue.trim())
+      setIsSaving(true)
+      try {
+        const data = await apiFetch<UserProfile>("/api/v1/users/me", {
+          method: "PATCH",
+          auth: true,
+          body: { nickname: editNicknameValue.trim() },
+        })
+        setNickname(data.nickname || editNicknameValue.trim())
+      } catch (error) {
+        console.error("Failed to save nickname:", error)
+        // 실패해도 로컬 상태는 업데이트
+        setNickname(editNicknameValue.trim())
+      } finally {
+        setIsSaving(false)
+      }
     }
     setIsEditingNickname(false)
   }
@@ -51,10 +90,23 @@ export default function ProfilePage() {
     setIsEditingMotto(true)
   }
 
-  const handleSaveMotto = () => {
+  const handleSaveMotto = async () => {
     if (editMottoValue.trim()) {
-      setMotto(editMottoValue.trim())
-      localStorage.setItem("userMotto", editMottoValue.trim())
+      setIsSaving(true)
+      try {
+        const data = await apiFetch<UserProfile>("/api/v1/users/me", {
+          method: "PATCH",
+          auth: true,
+          body: { motto: editMottoValue.trim() },
+        })
+        setMotto(data.motto || editMottoValue.trim())
+      } catch (error) {
+        console.error("Failed to save motto:", error)
+        // 실패해도 로컬 상태는 업데이트
+        setMotto(editMottoValue.trim())
+      } finally {
+        setIsSaving(false)
+      }
     }
     setIsEditingMotto(false)
   }
@@ -62,6 +114,21 @@ export default function ProfilePage() {
   const handleCancelMotto = () => {
     setIsEditingMotto(false)
     setEditMottoValue("")
+  }
+
+  const formatStudyTime = (minutes: number): string => {
+    if (minutes < 60) return `${minutes}m`
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-indigo-100 via-purple-50 to-white flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    )
   }
 
   return (
@@ -86,6 +153,7 @@ export default function ProfilePage() {
                   className="text-base italic min-w-[200px]"
                   placeholder="좋아하는 영어 좌우명을 입력하세요"
                   autoFocus
+                  disabled={isSaving}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSaveMotto()
                     if (e.key === "Escape") handleCancelMotto()
@@ -93,13 +161,19 @@ export default function ProfilePage() {
                 />
                 <button
                   onClick={handleSaveMotto}
-                  className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center hover:bg-green-200 transition-colors"
+                  disabled={isSaving}
+                  className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center hover:bg-green-200 transition-colors disabled:opacity-50"
                 >
-                  <Check className="w-4 h-4 text-green-600" />
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+                  ) : (
+                    <Check className="w-4 h-4 text-green-600" />
+                  )}
                 </button>
                 <button
                   onClick={handleCancelMotto}
-                  className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors"
+                  disabled={isSaving}
+                  className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors disabled:opacity-50"
                 >
                   <X className="w-4 h-4 text-red-600" />
                 </button>
@@ -146,7 +220,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Nickname - 함수 이름 변경 반영 */}
+        {/* Nickname */}
         <div className="flex items-center justify-center gap-3 mb-16">
           {isEditingNickname ? (
             <div className="flex items-center gap-2">
@@ -155,6 +229,7 @@ export default function ProfilePage() {
                 onChange={(e) => setEditNicknameValue(e.target.value)}
                 className="text-2xl font-bold text-center w-40"
                 autoFocus
+                disabled={isSaving}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleSaveNickname()
                   if (e.key === "Escape") handleCancelNickname()
@@ -162,13 +237,19 @@ export default function ProfilePage() {
               />
               <button
                 onClick={handleSaveNickname}
-                className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center hover:bg-green-200 transition-colors"
+                disabled={isSaving}
+                className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center hover:bg-green-200 transition-colors disabled:opacity-50"
               >
-                <Check className="w-5 h-5 text-green-600" />
+                {isSaving ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-green-600" />
+                ) : (
+                  <Check className="w-5 h-5 text-green-600" />
+                )}
               </button>
               <button
                 onClick={handleCancelNickname}
-                className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors"
+                disabled={isSaving}
+                className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors disabled:opacity-50"
               >
                 <X className="w-5 h-5 text-red-600" />
               </button>
@@ -186,7 +267,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Stats */}
+        {/* Stats - API 데이터로 표시 */}
         <div className="grid grid-cols-3 gap-4">
           {/* Total Study Time */}
           <div className="flex flex-col items-center">
@@ -194,7 +275,7 @@ export default function ProfilePage() {
               <Clock className="w-6 h-6 text-indigo-600" />
             </div>
             <p className="text-xs text-gray-600 mb-1 text-center">총 학습 시간</p>
-            <p className="text-2xl font-bold text-gray-900">--</p>
+            <p className="text-2xl font-bold text-gray-900">{formatStudyTime(totalStudyTime)}</p>
           </div>
 
           {/* Consecutive Days */}
@@ -203,7 +284,7 @@ export default function ProfilePage() {
               <Flame className="w-6 h-6 text-orange-600" />
             </div>
             <p className="text-xs text-gray-600 mb-1 text-center">연속 학습일</p>
-            <p className="text-2xl font-bold text-gray-900">0d</p>
+            <p className="text-2xl font-bold text-gray-900">{consecutiveDays}d</p>
           </div>
 
           {/* Accumulated Days */}
@@ -212,7 +293,7 @@ export default function ProfilePage() {
               <Calendar className="w-6 h-6 text-blue-600" />
             </div>
             <p className="text-xs text-gray-600 mb-1 text-center">누적 학습일</p>
-            <p className="text-2xl font-bold text-gray-900">0d</p>
+            <p className="text-2xl font-bold text-gray-900">{accumulatedDays}d</p>
           </div>
         </div>
       </div>
