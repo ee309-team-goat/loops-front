@@ -92,6 +92,9 @@ export async function startStudySession(params?: SessionStartRequest): Promise<S
     headers["Authorization"] = `Bearer ${token}`
   }
 
+  console.log("[v0] Starting study session with URL:", `${API_URL}/api/v1/study/session/start`)
+  console.log("[v0] Request params:", params)
+
   const response = await fetch(`${API_URL}/api/v1/study/session/start`, {
     method: "POST",
     headers,
@@ -100,19 +103,28 @@ export async function startStudySession(params?: SessionStartRequest): Promise<S
 
   const contentType = response.headers.get("content-type")
 
+  console.log("[v0] Response status:", response.status)
+  console.log("[v0] Response content-type:", contentType)
+
   if (!response.ok) {
     if (contentType && contentType.includes("application/json")) {
       const error = await response.json()
       throw new Error(error.detail || "학습 세션 시작에 실패했습니다.")
     }
-    throw new Error("서버 연결에 문제가 있습니다.")
+    const rawText = await response.text()
+    console.log("[v0] Non-JSON error response:", rawText.substring(0, 200))
+    throw new Error(`서버 오류 (${response.status}): ${response.statusText}`)
   }
 
   if (!contentType || !contentType.includes("application/json")) {
+    const rawText = await response.text()
+    console.log("[v0] Non-JSON success response:", rawText.substring(0, 200))
     throw new Error("서버에서 올바른 응답을 받지 못했습니다.")
   }
 
-  return response.json()
+  const data = await response.json()
+  console.log("[v0] Study session started successfully:", data.session_id)
+  return data
 }
 
 /**

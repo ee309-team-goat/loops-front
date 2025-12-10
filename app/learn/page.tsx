@@ -141,16 +141,28 @@ export default function LearnPage() {
           setError("오늘 학습할 카드가 없습니다.")
         }
       } catch (err) {
-        console.error("[v0] Failed to start study session:", err)
+        const isDevModeEnabled = localStorage.getItem("dev_mode") === "true"
+        const errorMessage = err instanceof Error ? err.message : "Unknown error"
+
+        if (isDevModeEnabled) {
+          // DEV 모드에서는 조용히 Mock 데이터 사용
+          console.log("[v0] DEV mode: Using mock cards due to API error:", errorMessage)
+        } else {
+          console.error("[v0] Failed to start study session:", errorMessage)
+        }
+
+        // 폴백: Mock 데이터 사용
         setCards(
           MOCK_CARDS.slice(0, dailyGoal).map((card, i) => ({
-            id: i,
+            id: card.id || i,
             word: card.word,
             pronunciation: card.pronunciation,
             definition: card.definition,
             partOfSpeech: "",
             definitionEn: "",
-            exampleSentences: [],
+            exampleSentences: card.example_sentence
+              ? [{ sentence: card.example_sentence, translation: card.example_translation || "" }]
+              : [],
             isNew: true,
           })),
         )
