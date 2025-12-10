@@ -50,6 +50,8 @@ export default function LoginPage() {
   }
 
   const handleDevSkip = () => {
+    console.log("[v0] handleDevSkip called!")
+
     const authData = {
       access_token: "dev-skip-token",
       refresh_token: "dev-skip-refresh",
@@ -59,13 +61,17 @@ export default function LoginPage() {
         username: "준호",
       },
     }
-    localStorage.setItem("loops:auth", JSON.stringify(authData))
-    console.log("[v0] Dev skip - saved directly to localStorage")
 
-    // 저장 후 약간의 지연을 두고 리다이렉트
-    setTimeout(() => {
-      window.location.href = "/dashboard"
-    }, 100)
+    console.log("[v0] About to save to localStorage:", authData)
+    localStorage.setItem("loops:auth", JSON.stringify(authData))
+
+    // 저장 확인
+    const saved = localStorage.getItem("loops:auth")
+    console.log("[v0] Verified saved data:", saved)
+
+    // 저장 후 리다이렉트
+    console.log("[v0] Redirecting to dashboard...")
+    window.location.href = "/dashboard"
   }
 
   return (
