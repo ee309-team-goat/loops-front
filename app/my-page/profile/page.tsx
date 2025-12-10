@@ -39,13 +39,14 @@ export default function ProfilePage() {
           method: "GET",
           auth: true,
         })
+        console.log("[v0] Profile API response:", JSON.stringify(data, null, 2))
         setNickname(data.nickname || "me")
         setMotto(data.motto || "")
         setTotalStudyTime(data.total_study_time || 0)
         setConsecutiveDays(data.consecutive_days || 0)
         setAccumulatedDays(data.accumulated_days || 0)
       } catch (error) {
-        console.error("Failed to fetch profile:", error)
+        console.error("[v0] Failed to fetch profile:", error)
       } finally {
         setIsLoading(false)
       }
