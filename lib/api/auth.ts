@@ -24,6 +24,12 @@ export interface AuthResponse {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 
 export async function login(data: LoginRequest): Promise<AuthResponse> {
+  if (!API_BASE_URL) {
+    throw new Error("API URL이 설정되지 않았습니다. 환경 변수를 확인해주세요.")
+  }
+
+  console.log("[v0] Login API URL:", `${API_BASE_URL}/api/v1/auth/login`)
+
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
     method: "POST",
     headers: {
@@ -31,6 +37,12 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     },
     body: JSON.stringify(data),
   })
+
+  const contentType = response.headers.get("content-type")
+  if (!contentType || !contentType.includes("application/json")) {
+    console.log("[v0] Response is not JSON:", await response.text())
+    throw new Error("서버 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.")
+  }
 
   if (response.status === 401) {
     throw new Error("이메일 또는 비밀번호가 잘못되었습니다.")
@@ -41,7 +53,8 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
   }
 
   if (!response.ok) {
-    throw new Error("로그인에 실패했습니다.")
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || "로그인에 실패했습니다.")
   }
 
   const authResponse: AuthResponse = await response.json()
@@ -55,6 +68,13 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
 }
 
 export async function register(data: RegisterRequest): Promise<AuthResponse> {
+  if (!API_BASE_URL) {
+    throw new Error("API URL이 설정되지 않았습니다. 환경 변수를 확인해주세요.")
+  }
+
+  console.log("[v0] Register API URL:", `${API_BASE_URL}/api/v1/auth/register`)
+  console.log("[v0] Register data:", { email: data.email, username: data.username })
+
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
     method: "POST",
     headers: {
@@ -63,12 +83,26 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
     body: JSON.stringify(data),
   })
 
+  const contentType = response.headers.get("content-type")
+  if (!contentType || !contentType.includes("application/json")) {
+    const textResponse = await response.text()
+    console.log("[v0] Response is not JSON:", textResponse)
+    throw new Error("서버 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.")
+  }
+
   if (response.status === 400) {
-    throw new Error("이메일 또는 사용자명이 이미 사용 중입니다.")
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || "이메일 또는 사용자명이 이미 사용 중입니다.")
+  }
+
+  if (response.status === 422) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || "입력 정보를 확인해주세요.")
   }
 
   if (!response.ok) {
-    throw new Error("회원가입에 실패했습니다.")
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || "회원가입에 실패했습니다.")
   }
 
   const authResponse: AuthResponse = await response.json()

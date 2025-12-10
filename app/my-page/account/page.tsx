@@ -6,7 +6,8 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, MessageCircle, Copy, Check, Plus, Mail, User, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { fetchCurrentUser, updateUserProfile, deleteUserAccount, logoutUser, type UserRead } from "@/lib/api/user"
+import { fetchCurrentUser, updateUserProfile, deleteUserAccount, type UserRead } from "@/lib/api/user"
+import { logout, getStoredUser, isLoggedIn } from "@/lib/api/auth"
 
 type AuthProvider = "guest" | "email" | "google" | "kakao" | "naver" | "apple" | "facebook" | "other"
 
@@ -130,53 +131,64 @@ export default function AccountPage() {
       setIsLoading(true)
       setError(null)
 
-      try {
-        const userData = await fetchCurrentUser()
-        setUser(userData)
-        setLearningPurpose(userData.learning_purpose || localStorage.getItem("learningPurpose") || "미설정")
-        setIsDevMode(false)
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "UNKNOWN_ERROR"
-
-        if (errorMessage === "NO_TOKEN" || errorMessage === "UNAUTHORIZED") {
-          const savedAuth = localStorage.getItem("authInfo")
-          if (savedAuth) {
-            const authInfo = JSON.parse(savedAuth)
-            if (authInfo.type === "guest") {
-              // DEV 모드 게스트 유저
-              setIsDevMode(true)
-              setUser({
-                id: 0,
-                email: "devs@kaist.ac.kr",
-                username: "DEV User",
-                is_active: true,
-                select_all_decks: true,
-                daily_goal: 20,
-                timezone: "Asia/Seoul",
-                theme: "light",
-                notification_enabled: true,
-                current_streak: 0,
-                longest_streak: 0,
-                last_study_date: null,
-                total_study_time_minutes: 0,
-                created_at: new Date().toISOString(),
-                updated_at: null,
-                provider: "guest",
-              })
-              const savedPurpose = localStorage.getItem("learningPurpose")
-              setLearningPurpose(savedPurpose || "미설정")
-            } else {
-              setError("로그인이 필요합니다.")
-            }
-          } else {
-            setError("로그인이 필요합니다.")
+      if (isLoggedIn()) {
+        try {
+          const userData = await fetchCurrentUser()
+          setUser(userData)
+          setLearningPurpose(userData.learning_purpose || localStorage.getItem("learningPurpose") || "미설정")
+          setIsDevMode(false)
+          setIsLoading(false)
+          return
+        } catch (err) {
+          // API 실패 시 저장된 사용자 정보 사용
+          const storedUser = getStoredUser()
+          if (storedUser) {
+            setUser(storedUser)
+            setLearningPurpose(storedUser.learning_purpose || localStorage.getItem("learningPurpose") || "미설정")
+            setIsDevMode(false)
+            setIsLoading(false)
+            return
           }
-        } else {
-          setError("사용자 정보를 불러오는데 실패했습니다.")
         }
-      } finally {
-        setIsLoading(false)
       }
+
+      const savedAuth = localStorage.getItem("authInfo")
+      if (savedAuth) {
+        try {
+          const authInfo = JSON.parse(savedAuth)
+          if (authInfo.type === "guest") {
+            setIsDevMode(true)
+            setUser({
+              id: 0,
+              email: "devs@kaist.ac.kr",
+              username: "DEV User",
+              is_active: true,
+              select_all_decks: true,
+              daily_goal: 20,
+              timezone: "Asia/Seoul",
+              theme: "light",
+              notification_enabled: true,
+              current_streak: 0,
+              longest_streak: 0,
+              last_study_date: null,
+              total_study_time_minutes: 0,
+              created_at: new Date().toISOString(),
+              updated_at: null,
+              provider: "guest",
+            })
+            const savedPurpose = localStorage.getItem("learningPurpose")
+            setLearningPurpose(savedPurpose || "미설정")
+            setIsLoading(false)
+            return
+          }
+        } catch {
+          // JSON 파싱 실패
+        }
+      }
+
+      // 로그인 필요
+      setError("로그인이 필요합니다.")
+      setIsLoading(false)
     }
 
     loadUserData()
@@ -191,9 +203,7 @@ export default function AccountPage() {
   }
 
   const handleLogout = async () => {
-    await logoutUser()
-    localStorage.removeItem("access_token")
-    localStorage.removeItem("authInfo")
+    logout()
     router.push("/")
   }
 
