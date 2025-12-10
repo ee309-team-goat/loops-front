@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, MessageCircle, Copy, Check, Plus, Mail, User, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { fetchCurrentUser, updateUserProfile, deleteUserAccount, type UserRead } from "@/lib/api/user"
+import { fetchCurrentUser, updateUserProfile, deleteUserAccount, logoutUser, type UserRead } from "@/lib/api/user"
 
 type AuthProvider = "guest" | "email" | "google" | "kakao" | "naver" | "apple" | "facebook" | "other"
 
@@ -133,7 +133,7 @@ export default function AccountPage() {
       try {
         const userData = await fetchCurrentUser()
         setUser(userData)
-        setLearningPurpose(userData.learning_purpose || "미설정")
+        setLearningPurpose(userData.learning_purpose || localStorage.getItem("learningPurpose") || "미설정")
         setIsDevMode(false)
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "UNKNOWN_ERROR"
@@ -146,11 +146,21 @@ export default function AccountPage() {
               // DEV 모드 게스트 유저
               setIsDevMode(true)
               setUser({
-                id: "dev-user",
+                id: 0,
                 email: "devs@kaist.ac.kr",
-                nickname: "DEV User",
+                username: "DEV User",
+                is_active: true,
+                select_all_decks: true,
+                daily_goal: 20,
+                timezone: "Asia/Seoul",
+                theme: "light",
+                notification_enabled: true,
+                current_streak: 0,
+                longest_streak: 0,
+                last_study_date: null,
+                total_study_time_minutes: 0,
                 created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
+                updated_at: null,
                 provider: "guest",
               })
               const savedPurpose = localStorage.getItem("learningPurpose")
@@ -172,7 +182,7 @@ export default function AccountPage() {
     loadUserData()
   }, [])
 
-  const accountCode = user ? `LOOPS-${user.id.substring(0, 8).toUpperCase()}` : ""
+  const accountCode = user ? `LOOPS-${String(user.id).padStart(8, "0")}` : ""
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(accountCode)
@@ -180,7 +190,8 @@ export default function AccountPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutUser()
     localStorage.removeItem("access_token")
     localStorage.removeItem("authInfo")
     router.push("/")
@@ -188,8 +199,8 @@ export default function AccountPage() {
 
   const handleDeleteAccount = async () => {
     try {
-      if (!isDevMode) {
-        await deleteUserAccount()
+      if (!isDevMode && user) {
+        await deleteUserAccount(user.id)
       }
       localStorage.clear()
       router.push("/")
@@ -202,21 +213,20 @@ export default function AccountPage() {
     setLearningPurpose(purpose)
     setShowPurposeSelect(false)
 
-    if (isDevMode) {
-      localStorage.setItem("learningPurpose", purpose)
-    } else {
+    localStorage.setItem("learningPurpose", purpose)
+
+    if (!isDevMode && user) {
       try {
-        await updateUserProfile({ learning_purpose: purpose })
+        await updateUserProfile(user.id, { learning_purpose: purpose })
       } catch (err) {
-        // 실패해도 로컬에는 저장
-        localStorage.setItem("learningPurpose", purpose)
+        console.log("학습 목적 저장 실패 (API 미지원 가능성)")
       }
     }
   }
 
   const purposes = ["취업/시험 준비", "업무/실무 활용", "여행/취미", "기타"]
 
-  const providerType = (user?.provider as AuthProvider) || (isDevMode ? "guest" : "other")
+  const providerType = (user?.provider as AuthProvider) || (isDevMode ? "guest" : "email")
   const providerStyle = getProviderStyle(providerType)
 
   if (isLoading) {
@@ -322,7 +332,7 @@ export default function AccountPage() {
                 </div>
                 <div className="px-4 pb-4 space-y-1">
                   <div className={`text-sm ${providerStyle.textColor} opacity-80`}>이메일: {user.email}</div>
-                  <div className={`text-sm ${providerStyle.textColor} opacity-80`}>닉네임: {user.nickname}</div>
+                  <div className={`text-sm ${providerStyle.textColor} opacity-80`}>닉네임: {user.username}</div>
                   <div className={`text-sm ${providerStyle.textColor} opacity-60`}>
                     가입일: {new Date(user.created_at).toLocaleDateString("ko-KR")}
                   </div>
