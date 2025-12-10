@@ -98,13 +98,18 @@ export async function startStudySession(params?: SessionStartRequest): Promise<S
     body: JSON.stringify(params || {}),
   })
 
+  const contentType = response.headers.get("content-type")
+
   if (!response.ok) {
-    const contentType = response.headers.get("content-type")
     if (contentType && contentType.includes("application/json")) {
       const error = await response.json()
       throw new Error(error.detail || "학습 세션 시작에 실패했습니다.")
     }
     throw new Error("서버 연결에 문제가 있습니다.")
+  }
+
+  if (!contentType || !contentType.includes("application/json")) {
+    throw new Error("서버에서 올바른 응답을 받지 못했습니다.")
   }
 
   return response.json()
@@ -135,13 +140,18 @@ export async function completeStudySession(data: SessionCompleteRequest): Promis
     body: JSON.stringify(data),
   })
 
+  const contentType = response.headers.get("content-type")
+
   if (!response.ok) {
-    const contentType = response.headers.get("content-type")
     if (contentType && contentType.includes("application/json")) {
       const error = await response.json()
       throw new Error(error.detail || "학습 세션 완료에 실패했습니다.")
     }
     throw new Error("서버 연결에 문제가 있습니다.")
+  }
+
+  if (!contentType || !contentType.includes("application/json")) {
+    throw new Error("서버에서 올바른 응답을 받지 못했습니다.")
   }
 
   return response.json()
