@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { getAuthFriendlyError, shouldSuggestRegister } from "@/lib/auth/error-messages"
-import { saveAuth } from "@/lib/auth/storage"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -51,7 +50,7 @@ export default function LoginPage() {
   }
 
   const handleDevSkip = () => {
-    saveAuth({
+    const authData = {
       access_token: "dev-skip-token",
       refresh_token: "dev-skip-refresh",
       user: {
@@ -59,8 +58,14 @@ export default function LoginPage() {
         email: "dev@example.com",
         username: "준호",
       },
-    })
-    window.location.href = "/dashboard"
+    }
+    localStorage.setItem("loops:auth", JSON.stringify(authData))
+    console.log("[v0] Dev skip - saved directly to localStorage")
+
+    // 저장 후 약간의 지연을 두고 리다이렉트
+    setTimeout(() => {
+      window.location.href = "/dashboard"
+    }, 100)
   }
 
   return (
