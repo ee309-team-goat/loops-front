@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Sun, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, Info, User } from "lucide-react"
+import { ChevronRight, Sun, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, Info, User, Library } from "lucide-react"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
@@ -17,6 +17,7 @@ export default function MyPage() {
     {
       title: "설정",
       items: [
+        { icon: Library, label: "단어장 선택", description: "학습에 사용할 단어장을 선택", path: "/decks/select" },
         { icon: Sun, label: "화면", description: "다크 모드 설정, 학습 화면 테마", path: "/my-page/display" },
         {
           icon: Bell,
