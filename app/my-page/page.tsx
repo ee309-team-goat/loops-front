@@ -1,14 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Bell, Volume2, Star, BookOpen, HelpCircle, Info, User, UserCog } from "lucide-react"
+import { ChevronRight, Bell, Volume2, Star, BookOpen, HelpCircle, Info, User, UserCog, LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 
 export default function MyPage() {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { user, isAuthenticated, logout, isLoading } = useAuth()
 
   const settingsGroups = [
     {
@@ -45,10 +45,6 @@ export default function MyPage() {
     },
   ]
 
-  const handleLogout = () => {
-    setIsLoggedIn(false)
-  }
-
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
@@ -70,19 +66,24 @@ export default function MyPage() {
               <User className="w-5 h-5 text-muted-foreground" />
             </div>
             <div className="flex-1 text-left">
-              <div className="font-medium text-foreground">프로필 정보</div>
-              <div className="text-xs text-muted-foreground mt-0.5">나의 프로필 및 학습 통계</div>
+              <div className="font-medium text-foreground">
+                {isAuthenticated && user ? user.username : "프로필 정보"}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {isAuthenticated ? "나의 프로필 및 학습 통계" : "로그인하여 프로필 확인"}
+              </div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
           </button>
         </div>
 
-        {isLoggedIn ? (
+        {isAuthenticated ? (
           <div className="bg-card rounded-2xl overflow-hidden">
             <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center p-4 text-red-600 font-medium hover:bg-muted transition-colors"
+              onClick={logout}
+              className="w-full flex items-center justify-center gap-2 p-4 text-red-600 font-medium hover:bg-muted transition-colors"
             >
+              <LogOut className="w-5 h-5" />
               로그아웃
             </button>
           </div>
