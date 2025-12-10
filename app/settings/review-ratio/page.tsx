@@ -8,15 +8,16 @@ import { useCourseStore } from "@/store/course-store"
 
 export default function ReviewRatioPage() {
   const router = useRouter()
-  const { reviewRatioMode, customReviewRatioPercent, setTargetWordCount } = useCourseStore()
+  const { reviewRatioMode, customReviewRatioPercent, setReviewRatioMode, setCustomReviewRatioPercent } =
+    useCourseStore()
 
   // Local state for editing
   const [mode, setMode] = useState<"normal" | "custom">(reviewRatioMode)
   const [customPercent, setCustomPercent] = useState(customReviewRatioPercent)
 
   const handleSave = () => {
-    // Update store - we need to add these actions to the store
-    // For now just go back
+    setReviewRatioMode(mode)
+    setCustomReviewRatioPercent(customPercent)
     router.back()
   }
 

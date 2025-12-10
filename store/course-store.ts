@@ -22,6 +22,8 @@ interface CourseState {
   setSelectedDeckIds: (ids: string[]) => void
   setReviewScope: (scope: ReviewScope) => void
   setTargetWordCount: (count: number) => void
+  setReviewRatioMode: (mode: "normal" | "custom") => void
+  setCustomReviewRatioPercent: (percent: number) => void
   resetCustomSelection: () => void
 }
 
@@ -41,6 +43,8 @@ export const useCourseStore = create<CourseState>()(
       setSelectedDeckIds: (ids) => set({ customSelectedDeckIds: ids }),
       setReviewScope: (scope) => set({ reviewScope: scope }),
       setTargetWordCount: (count) => set({ targetWordCount: count }),
+      setReviewRatioMode: (mode) => set({ reviewRatioMode: mode }),
+      setCustomReviewRatioPercent: (percent) => set({ customReviewRatioPercent: percent }),
       resetCustomSelection: () =>
         set({
           customSelectedDeckIds: [],

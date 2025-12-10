@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Flame, BookOpen, Clock, Bell, BarChart3 } from "lucide-react"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { AuthRequired } from "@/components/auth-required"
-import { StudyModal } from "@/components/study-modal"
-
-type ModalStep = "today" | "extra"
+import { StudyModal, type ModalStep } from "@/components/study-modal"
 
 export default function DashboardPage() {
   const [isStudyModalOpen, setIsStudyModalOpen] = useState(false)

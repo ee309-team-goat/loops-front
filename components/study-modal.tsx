@@ -7,7 +7,7 @@ import { useCourseStore } from "@/store/course-store"
 import { buildCourseSummary } from "@/lib/course-summary"
 import { MOCK_CATEGORIES } from "@/lib/mock-decks"
 
-type ModalStep = "today" | "extra"
+export type ModalStep = "today" | "extra"
 
 interface StudyModalProps {
   isOpen: boolean
