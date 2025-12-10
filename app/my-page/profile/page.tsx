@@ -21,7 +21,7 @@ export default function ProfilePage() {
   const [isEditingNickname, setIsEditingNickname] = useState(false)
   const [editNicknameValue, setEditNicknameValue] = useState("")
 
-  const [motto, setMotto] = useState("Every word you learn opens a new door.")
+  const [motto, setMotto] = useState("")
   const [isEditingMotto, setIsEditingMotto] = useState(false)
   const [editMottoValue, setEditMottoValue] = useState("")
 
@@ -40,7 +40,7 @@ export default function ProfilePage() {
           auth: true,
         })
         setNickname(data.nickname || "me")
-        setMotto(data.motto || "Every word you learn opens a new door.")
+        setMotto(data.motto || "")
         setTotalStudyTime(data.total_study_time || 0)
         setConsecutiveDays(data.consecutive_days || 0)
         setAccumulatedDays(data.accumulated_days || 0)
@@ -180,7 +180,9 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <p className="text-gray-800 text-base italic">&ldquo;{motto}&rdquo;</p>
+                <p className="text-gray-800 text-base italic">
+                  {motto ? `"${motto}"` : <span className="text-gray-400">좌우명을 입력해주세요</span>}
+                </p>
                 <button
                   onClick={handleEditMotto}
                   className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center hover:bg-indigo-200 transition-colors"
