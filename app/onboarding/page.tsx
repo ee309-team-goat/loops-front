@@ -21,8 +21,15 @@ export default function OnboardingPage() {
     if (step < 3) {
       setStep((prev) => (prev + 1) as Step)
     } else {
-      // TODO: Send profile to backend API
       console.log("[v0] Profile data:", answers)
+      const goalMap: Record<string, string> = {
+        job: "취업/시험 준비",
+        work: "업무/실무 활용",
+        travel: "여행/취미",
+      }
+      if (answers.goal) {
+        localStorage.setItem("learningPurpose", goalMap[answers.goal] || answers.goal)
+      }
       router.push("/onboarding/deck-selection")
     }
   }
@@ -32,9 +39,9 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Progress Bar */}
-      <div className="h-1 bg-gray-200 w-full">
+      <div className="h-1 bg-muted w-full">
         <div
           className="h-full bg-indigo-600 transition-all duration-500 ease-out"
           style={{ width: `${(step / 3) * 100}%` }}
@@ -47,8 +54,8 @@ export default function OnboardingPage() {
           {step === 1 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold">영어를 왜 배우시나요?</h2>
-                <p className="text-gray-500">가장 중요한 목표 하나만 알려주세요.</p>
+                <h2 className="text-2xl font-bold text-foreground">영어를 왜 배우시나요?</h2>
+                <p className="text-muted-foreground">가장 중요한 목표 하나만 알려주세요.</p>
               </div>
               <div className="space-y-3">
                 {[
@@ -62,12 +69,12 @@ export default function OnboardingPage() {
                     className={cn(
                       "w-full p-4 rounded-xl border-2 text-left transition-all",
                       answers.goal === option.id
-                        ? "border-indigo-600 bg-indigo-50"
-                        : "border-gray-200 bg-white hover:border-indigo-200",
+                        ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950"
+                        : "border-border bg-card hover:border-indigo-200 dark:hover:border-indigo-800",
                     )}
                   >
-                    <div className="font-bold text-lg text-gray-900">{option.label}</div>
-                    <div className="text-sm text-gray-500">{option.desc}</div>
+                    <div className="font-bold text-lg text-foreground">{option.label}</div>
+                    <div className="text-sm text-muted-foreground">{option.desc}</div>
                   </button>
                 ))}
               </div>
@@ -78,8 +85,8 @@ export default function OnboardingPage() {
           {step === 2 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold">현재 영어 실력은?</h2>
-                <p className="text-gray-500">딱 맞는 단어를 추천해드릴게요.</p>
+                <h2 className="text-2xl font-bold text-foreground">현재 영어 실력은?</h2>
+                <p className="text-muted-foreground">딱 맞는 단어를 추천해드릴게요.</p>
               </div>
               <div className="space-y-3">
                 {[
@@ -93,12 +100,12 @@ export default function OnboardingPage() {
                     className={cn(
                       "w-full p-4 rounded-xl border-2 text-left transition-all",
                       answers.level === option.id
-                        ? "border-indigo-600 bg-indigo-50"
-                        : "border-gray-200 bg-white hover:border-indigo-200",
+                        ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950"
+                        : "border-border bg-card hover:border-indigo-200 dark:hover:border-indigo-800",
                     )}
                   >
-                    <div className="font-bold text-lg text-gray-900">{option.label}</div>
-                    <div className="text-sm text-gray-500">{option.desc}</div>
+                    <div className="font-bold text-lg text-foreground">{option.label}</div>
+                    <div className="text-sm text-muted-foreground">{option.desc}</div>
                   </button>
                 ))}
               </div>
@@ -109,8 +116,8 @@ export default function OnboardingPage() {
           {step === 3 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold">하루 몇 분 공부하실래요?</h2>
-                <p className="text-gray-500">꾸준히 할 수 있는 만큼만 선택하세요.</p>
+                <h2 className="text-2xl font-bold text-foreground">하루 몇 분 공부하실래요?</h2>
+                <p className="text-muted-foreground">꾸준히 할 수 있는 만큼만 선택하세요.</p>
               </div>
               <div className="space-y-3">
                 {[
@@ -124,12 +131,12 @@ export default function OnboardingPage() {
                     className={cn(
                       "w-full p-4 rounded-xl border-2 text-left transition-all",
                       answers.time === option.id
-                        ? "border-indigo-600 bg-indigo-50"
-                        : "border-gray-200 bg-white hover:border-indigo-200",
+                        ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950"
+                        : "border-border bg-card hover:border-indigo-200 dark:hover:border-indigo-800",
                     )}
                   >
-                    <div className="font-bold text-lg text-gray-900">{option.label}</div>
-                    <div className="text-sm text-gray-500">{option.desc}</div>
+                    <div className="font-bold text-lg text-foreground">{option.label}</div>
+                    <div className="text-sm text-muted-foreground">{option.desc}</div>
                   </button>
                 ))}
               </div>

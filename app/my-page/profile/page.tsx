@@ -1,11 +1,68 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Pencil, Clock, Flame, Calendar } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function ProfilePage() {
   const router = useRouter()
+  const [nickname, setNickname] = useState("me")
+  const [isEditingNickname, setIsEditingNickname] = useState(false)
+  const [editNicknameValue, setEditNicknameValue] = useState("")
+
+  const [motto, setMotto] = useState("Every word you learn opens a new door.")
+  const [isEditingMotto, setIsEditingMotto] = useState(false)
+  const [editMottoValue, setEditMottoValue] = useState("")
+
+  useEffect(() => {
+    const savedNickname = localStorage.getItem("userNickname")
+    if (savedNickname) {
+      setNickname(savedNickname)
+    }
+
+    const savedMotto = localStorage.getItem("userMotto")
+    if (savedMotto) {
+      setMotto(savedMotto)
+    }
+  }, [])
+
+  const handleEditNickname = () => {
+    setEditNicknameValue(nickname)
+    setIsEditingNickname(true)
+  }
+
+  const handleSaveNickname = () => {
+    if (editNicknameValue.trim()) {
+      setNickname(editNicknameValue.trim())
+      localStorage.setItem("userNickname", editNicknameValue.trim())
+    }
+    setIsEditingNickname(false)
+  }
+
+  const handleCancelNickname = () => {
+    setIsEditingNickname(false)
+    setEditNicknameValue("")
+  }
+
+  const handleEditMotto = () => {
+    setEditMottoValue(motto)
+    setIsEditingMotto(true)
+  }
+
+  const handleSaveMotto = () => {
+    if (editMottoValue.trim()) {
+      setMotto(editMottoValue.trim())
+      localStorage.setItem("userMotto", editMottoValue.trim())
+    }
+    setIsEditingMotto(false)
+  }
+
+  const handleCancelMotto = () => {
+    setIsEditingMotto(false)
+    setEditMottoValue("")
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-100 via-purple-50 to-white">
@@ -19,10 +76,46 @@ export default function ProfilePage() {
 
       {/* Profile Content */}
       <div className="px-6 pt-12 pb-8">
-        {/* Speech Bubble */}
         <div className="relative mb-12">
-          <div className="bg-white rounded-3xl px-6 py-4 shadow-sm inline-block">
-            <p className="text-gray-800 text-base">영어 좌우명이 있나요?</p>
+          <div className="bg-white rounded-3xl px-6 py-4 shadow-sm inline-block max-w-[90%]">
+            {isEditingMotto ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editMottoValue}
+                  onChange={(e) => setEditMottoValue(e.target.value)}
+                  className="text-base italic min-w-[200px]"
+                  placeholder="좋아하는 영어 좌우명을 입력하세요"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveMotto()
+                    if (e.key === "Escape") handleCancelMotto()
+                  }}
+                />
+                <button
+                  onClick={handleSaveMotto}
+                  className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center hover:bg-green-200 transition-colors"
+                >
+                  <Check className="w-4 h-4 text-green-600" />
+                </button>
+                <button
+                  onClick={handleCancelMotto}
+                  className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors"
+                >
+                  <X className="w-4 h-4 text-red-600" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <p className="text-gray-800 text-base italic">&ldquo;{motto}&rdquo;</p>
+                <button
+                  onClick={handleEditMotto}
+                  className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center hover:bg-indigo-200 transition-colors"
+                  title="좌우명 편집"
+                >
+                  <Pencil className="w-4 h-4 text-indigo-600" />
+                </button>
+              </div>
+            )}
           </div>
           <div className="absolute left-8 -bottom-2 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[12px] border-t-white"></div>
         </div>
@@ -53,12 +146,44 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Username */}
+        {/* Nickname - 함수 이름 변경 반영 */}
         <div className="flex items-center justify-center gap-3 mb-16">
-          <h2 className="text-3xl font-bold text-gray-800">me</h2>
-          <button className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors">
-            <Pencil className="w-5 h-5 text-gray-600" />
-          </button>
+          {isEditingNickname ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={editNicknameValue}
+                onChange={(e) => setEditNicknameValue(e.target.value)}
+                className="text-2xl font-bold text-center w-40"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveNickname()
+                  if (e.key === "Escape") handleCancelNickname()
+                }}
+              />
+              <button
+                onClick={handleSaveNickname}
+                className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center hover:bg-green-200 transition-colors"
+              >
+                <Check className="w-5 h-5 text-green-600" />
+              </button>
+              <button
+                onClick={handleCancelNickname}
+                className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors"
+              >
+                <X className="w-5 h-5 text-red-600" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-3xl font-bold text-gray-800">{nickname}</h2>
+              <button
+                onClick={handleEditNickname}
+                className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+              >
+                <Pencil className="w-5 h-5 text-gray-600" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Stats */}
