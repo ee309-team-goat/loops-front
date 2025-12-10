@@ -1,10 +1,23 @@
+"use client"
+
+import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Flame, BookOpen, Clock, Bell, BarChart3 } from "lucide-react"
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { AuthRequired } from "@/components/auth-required"
+import { StudyModal } from "@/components/study-modal"
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const [isStudyModalOpen, setIsStudyModalOpen] = useState(false)
+
+  const handleStartStudy = () => {
+    setIsStudyModalOpen(false)
+    router.push("/learn")
+  }
+
   return (
     <AuthRequired>
       <div className="min-h-screen bg-gray-50 pb-20 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -75,9 +88,12 @@ export default function DashboardPage() {
               <div className="h-full bg-indigo-500 w-[75%] rounded-full" />
             </div>
 
-            <Link href="/learn" className="block">
-              <Button className="w-full py-6 text-lg shadow-indigo-200 shadow-lg">학습 계속하기</Button>
-            </Link>
+            <Button
+              className="w-full py-6 text-lg shadow-indigo-200 shadow-lg"
+              onClick={() => setIsStudyModalOpen(true)}
+            >
+              학습 계속하기
+            </Button>
           </div>
         </div>
 
@@ -112,6 +128,18 @@ export default function DashboardPage() {
 
         {/* Bottom Tab Navigation */}
         <BottomTabNav />
+
+        {/* Study Modal */}
+        <StudyModal
+          isOpen={isStudyModalOpen}
+          onClose={() => setIsStudyModalOpen(false)}
+          onStartStudy={handleStartStudy}
+          newWords={35}
+          reviewWords={73}
+          retryWords={32}
+          totalTarget={140}
+          currentProgress={0}
+        />
       </div>
     </AuthRequired>
   )
