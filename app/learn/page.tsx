@@ -12,13 +12,18 @@ import { AuthRequired } from "@/components/auth-required"
 import { useCourseStore } from "@/store/course-store"
 import { Volume2, X, Mic, Lightbulb, Repeat, Check, XIcon, HelpCircle, Eye } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ActionBar } from "@/components/learn/action-bar"
+import { WrongNotesSheet } from "@/components/learn/sheets/wrong-notes-sheet"
+import { PlaceholderSheet } from "@/components/learn/sheets/placeholder-sheet"
+import { saveWrongNote } from "@/lib/wrong-notes"
 
 type Card = (typeof MOCK_CARDS)[number]
 
 interface TypingCard extends Card {
   koSentence: string
   enSentenceWithBlank: string
-  explanation: string
+  explanation?: string
+  exampleCandidates?: Array<{ koSentence: string; enSentenceWithBlank: string }>
 }
 
 interface ModeProps {
@@ -375,9 +380,26 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
   const [revealedCount, setRevealedCount] = useState(0)
   const [usedHint, setUsedHint] = useState(false)
   const [showAnswer, setShowAnswer] = useState(false)
+  const [wasIncorrect, setWasIncorrect] = useState(false)
+  const [exampleIndex, setExampleIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Sheet states
+  const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
+  const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
+  const [wordInfoOpen, setWordInfoOpen] = useState(false)
+  const [pronunciationOpen, setPronunciationOpen] = useState(false)
+
   const answer = typingCard.word
+
+  // Get current example (either from candidates or default)
+  const currentExample = useMemo(() => {
+    if (typingCard.exampleCandidates && typingCard.exampleCandidates.length > 0) {
+      const idx = exampleIndex % typingCard.exampleCandidates.length
+      return typingCard.exampleCandidates[idx]
+    }
+    return { koSentence: typingCard.koSentence, enSentenceWithBlank: typingCard.enSentenceWithBlank }
+  }, [typingCard, exampleIndex])
 
   useEffect(() => {
     setUserInput("")
@@ -385,6 +407,8 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
     setRevealedCount(0)
     setUsedHint(false)
     setShowAnswer(false)
+    setWasIncorrect(false)
+    setExampleIndex(0)
     inputRef.current?.focus()
   }, [typingCard])
 
@@ -399,6 +423,17 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
       setStatus("correct")
     } else {
       setStatus("incorrect")
+      // Save to wrong notes only on first incorrect attempt
+      if (!wasIncorrect) {
+        setWasIncorrect(true)
+        saveWrongNote({
+          word: typingCard.word,
+          userAnswer: userInput.trim(),
+          correctAnswer: answer,
+          koSentence: currentExample.koSentence,
+          enSentenceWithBlank: currentExample.enSentenceWithBlank,
+        })
+      }
     }
   }
 
@@ -420,15 +455,21 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
     setShowAnswer(true)
   }
 
+  const handleOtherExample = () => {
+    if (typingCard.exampleCandidates && typingCard.exampleCandidates.length > 1) {
+      setExampleIndex((prev) => prev + 1)
+    }
+  }
+
   const hintDisplay = answer
     .split("")
     .map((char, i) => (i < revealedCount ? char : "_"))
     .join("")
 
   const renderSentence = () => {
-    const parts = typingCard.enSentenceWithBlank.split("____")
+    const parts = currentExample.enSentenceWithBlank.split("____")
     if (parts.length !== 2) {
-      return <span>{typingCard.enSentenceWithBlank}</span>
+      return <span>{currentExample.enSentenceWithBlank}</span>
     }
 
     return (
@@ -454,13 +495,14 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
   }
 
   const showInputUI = (status === "idle" || status === "incorrect") && !showAnswer
+  const showActionBar = status === "correct" || showAnswer
 
   return (
     <>
-      <div className="flex flex-col overflow-y-auto p-4 bg-sky-50">
+      <div className="flex-1 flex flex-col overflow-y-auto p-4 bg-sky-50">
         <div className="bg-sky-100 rounded-2xl p-4 mb-4">
           <p className="text-lg text-gray-800 leading-relaxed">
-            {typingCard.koSentence.split(typingCard.definition).map((part, i, arr) => (
+            {currentExample.koSentence.split(typingCard.definition).map((part, i, arr) => (
               <span key={i}>
                 {part}
                 {i < arr.length - 1 && <span className="text-indigo-600 font-bold">{typingCard.definition}</span>}
@@ -480,9 +522,9 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
         <p className="text-xs text-gray-400 text-center mb-4">[어휘 출처] 능률 VOCA 어원편, DAY 17</p>
       </div>
 
-      <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      <div className="shrink-0 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         {showInputUI ? (
-          <div className="space-y-4">
+          <div className="p-4 pb-8 space-y-4">
             <input
               ref={inputRef}
               type="text"
@@ -530,24 +572,48 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {status === "correct" && (
-              <div className="bg-green-100 text-green-700 rounded-xl p-3 text-center font-medium flex items-center justify-center gap-2">
-                <Check className="w-5 h-5" />
-                정답입니다!
-              </div>
+          <div className="space-y-0">
+            {/* Result feedback */}
+            <div className="p-4">
+              {status === "correct" && (
+                <div className="bg-green-100 text-green-700 rounded-xl p-3 text-center font-medium flex items-center justify-center gap-2">
+                  <Check className="w-5 h-5" />
+                  정답입니다!
+                </div>
+              )}
+              {showAnswer && status !== "correct" && (
+                <div className="bg-gray-100 rounded-xl p-4 text-center">
+                  <p className="text-sm text-gray-500 mb-1">정답</p>
+                  <p className="text-2xl font-bold text-indigo-600">{answer}</p>
+                  {typingCard.explanation && <p className="text-sm text-gray-600 mt-2">{typingCard.explanation}</p>}
+                </div>
+              )}
+            </div>
+
+            {/* Action bar - shown after grading */}
+            {showActionBar && (
+              <ActionBar
+                onOtherExample={handleOtherExample}
+                onWrongNotes={() => setWrongNotesOpen(true)}
+                onAiQuestion={() => setAiQuestionOpen(true)}
+                onWordInfo={() => setWordInfoOpen(true)}
+                onPronunciation={() => setPronunciationOpen(true)}
+              />
             )}
-            {showAnswer && (
-              <div className="bg-gray-100 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-500 mb-1">정답</p>
-                <p className="text-2xl font-bold text-indigo-600">{answer}</p>
-                {typingCard.explanation && <p className="text-sm text-gray-600 mt-2">{typingCard.explanation}</p>}
-              </div>
-            )}
-            <RatingButtons onRate={onRate} />
+
+            {/* Rating buttons */}
+            <div className="p-4 pt-0 pb-8">
+              <RatingButtons onRate={onRate} />
+            </div>
           </div>
         )}
       </div>
+
+      {/* Bottom sheets */}
+      <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
+      <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
+      <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
+      <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
     </>
   )
 }
