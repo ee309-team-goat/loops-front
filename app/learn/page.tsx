@@ -457,7 +457,7 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
 
   return (
     <>
-      <div className="flex-1 flex flex-col p-4 bg-sky-50">
+      <div className="flex flex-col overflow-y-auto p-4 bg-sky-50">
         <div className="bg-sky-100 rounded-2xl p-4 mb-4">
           <p className="text-lg text-gray-800 leading-relaxed">
             {typingCard.koSentence.split(typingCard.definition).map((part, i, arr) => (
@@ -494,35 +494,37 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
               autoFocus
             />
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-2">
               {revealedCount < answer.length && (
                 <Button
                   variant="outline"
-                  className="flex-1 py-4 text-indigo-600 border-indigo-200 bg-transparent"
+                  className="min-w-0 flex-1 basis-[calc(50%-0.25rem)] py-3 text-sm text-indigo-600 border-indigo-200 bg-transparent"
                   onClick={handleHint}
                 >
-                  <HelpCircle className="w-4 h-4 mr-2" />
-                  힌트 보기 {revealedCount > 0 && `(${revealedCount}/${answer.length})`}
+                  <HelpCircle className="w-4 h-4 mr-1 shrink-0" />
+                  <span className="truncate">
+                    힌트 ({revealedCount}/{answer.length})
+                  </span>
                 </Button>
               )}
 
               {usedHint && (
                 <Button
                   variant="outline"
-                  className="flex-1 py-4 text-orange-600 border-orange-200 bg-transparent"
+                  className="min-w-0 flex-1 basis-[calc(50%-0.25rem)] py-3 text-sm text-orange-600 border-orange-200 bg-transparent"
                   onClick={handleShowAnswer}
                 >
-                  <Eye className="w-4 h-4 mr-2" />
-                  정답 보기
+                  <Eye className="w-4 h-4 mr-1 shrink-0" />
+                  <span className="truncate">정답 보기</span>
                 </Button>
               )}
 
               <Button
-                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700"
+                className="min-w-0 flex-1 basis-full py-3 text-sm bg-indigo-600 hover:bg-indigo-700"
                 onClick={() => handleSubmit()}
                 disabled={!userInput.trim()}
               >
-                <Check className="w-4 h-4 mr-2" />
+                <Check className="w-4 h-4 mr-1 shrink-0" />
                 확인
               </Button>
             </div>
@@ -733,8 +735,8 @@ export default function LearnPage() {
 
   return (
     <AuthRequired>
-      <div className="min-h-screen bg-gray-100 flex flex-col">
-        <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm z-10">
+      <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
+        <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm z-10 shrink-0">
           <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
             <X className="w-5 h-5 text-gray-500" />
           </Button>

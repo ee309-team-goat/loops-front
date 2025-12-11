@@ -157,4 +157,23 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Hide scrollbars globally while allowing scroll */
+  html,
+  body {
+    overflow-x: hidden;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+  /* Also hide scrollbars on any scrollable container */
+  *::-webkit-scrollbar {
+    display: none;
+  }
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
 }
