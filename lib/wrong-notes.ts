@@ -35,9 +35,16 @@ export function saveWrongNote(note: Omit<WrongNote, "id" | "ts">): void {
     (n) => n.word === note.word && n.enSentenceWithBlank === note.enSentenceWithBlank,
   )
 
+  const generateId = () => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID()
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  }
+
   const newNote: WrongNote = {
     ...note,
-    id: existingIndex >= 0 ? notes[existingIndex].id : crypto.randomUUID(),
+    id: existingIndex >= 0 ? notes[existingIndex].id : generateId(),
     ts: Date.now(),
   }
 

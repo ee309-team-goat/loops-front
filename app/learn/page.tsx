@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -43,7 +42,7 @@ function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
     <div className="grid grid-cols-4 gap-2">
       <div className="flex flex-col gap-1">
         <Button
-          variant="danger"
+          variant="destructive"
           className="h-14 bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 border-0"
           onClick={() => onRate(FSRS_RATING.AGAIN)}
         >
@@ -63,7 +62,7 @@ function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
       </div>
       <div className="flex flex-col gap-1">
         <Button
-          variant="success"
+          variant="secondary"
           className="h-14 bg-green-100 text-green-600 hover:bg-green-200 hover:text-green-700 border-0"
           onClick={() => onRate(FSRS_RATING.GOOD)}
         >
@@ -73,7 +72,7 @@ function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
       </div>
       <div className="flex flex-col gap-1">
         <Button
-          variant="primary"
+          variant="default"
           className="h-14 bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 border-0"
           onClick={() => onRate(FSRS_RATING.EASY)}
         >
@@ -94,6 +93,12 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [showPronunciationAnalysis, setShowPronunciationAnalysis] = useState(false)
   const prevIsFlipped = useRef(false)
+
+  // Sheet states
+  const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
+  const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
+  const [wordInfoOpen, setWordInfoOpen] = useState(false)
+  const [pronunciationOpen, setPronunciationOpen] = useState(false)
 
   const mockExamples = [
     {
@@ -163,10 +168,17 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
   }
 
   const currentExample = mockExamples[currentExampleIndex]
+  const hasOtherExamples = mockExamples.length > 1
+
+  const handleOtherExample = () => {
+    if (hasOtherExamples) {
+      setCurrentExampleIndex((prev) => (prev + 1) % mockExamples.length)
+    }
+  }
 
   return (
     <>
-      <div className="flex-1 flex flex-col items-center justify-center p-4 perspective-1000">
+      <div className="flex-1 flex items-center justify-center p-4">
         <div
           className={cn(
             "relative w-full max-w-sm aspect-[3/4] transition-all duration-500 transform-style-3d cursor-pointer",
@@ -174,6 +186,7 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
           )}
           onClick={handleFlip}
         >
+          {/* Front of card */}
           <div className="absolute inset-0 bg-white rounded-3xl shadow-xl flex flex-col items-center justify-center p-8 backface-hidden border border-gray-100">
             <span className="text-4xl font-bold text-gray-900 mb-8">{card.word}</span>
             {showTutorial && (
@@ -184,6 +197,7 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
             )}
           </div>
 
+          {/* Back of card */}
           <div className="absolute inset-0 bg-white rounded-3xl shadow-xl flex flex-col p-6 backface-hidden rotate-y-180 border border-gray-100 overflow-y-auto">
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
               <div className="space-y-2">
@@ -219,7 +233,7 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
                     {isGeneratingExample ? "생성 중..." : "새 예문"}
                   </button>
                 </div>
-                <p className="text-gray-800 font-medium">"{currentExample.sentence}"</p>
+                <p className="text-gray-800 font-medium">&quot;{currentExample.sentence}&quot;</p>
                 <p className="text-gray-500 text-sm">{currentExample.translation}</p>
               </div>
               <button
@@ -241,7 +255,7 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
                   <div className="space-y-1">
                     <div className="text-xs text-indigo-700">
                       <Lightbulb className="w-3 h-3 inline mr-1" />
-                      'v' 발음: 아랫입술을 윗니에 대고 소리내세요
+                      &apos;v&apos; 발음: 아랫입술을 윗니에 대고 소리내세요
                     </div>
                     <div className="text-xs text-indigo-700">
                       강세: in-no-<strong>VA</strong>-tion (3음절 강조)
@@ -263,15 +277,26 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
         </div>
       </div>
 
-      <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        {!isFlipped ? (
-          <Button className="w-full py-6 text-lg font-medium" onClick={handleFlip}>
-            정답 확인하기
-          </Button>
-        ) : (
-          <RatingButtons onRate={onRate} />
-        )}
+      {/* ActionBar shown after flip */}
+      {isFlipped && (
+        <ActionBar
+          onOtherExample={handleOtherExample}
+          onWrongNotes={() => setWrongNotesOpen(true)}
+          onAiQuestion={() => setAiQuestionOpen(true)}
+          onWordInfo={() => setWordInfoOpen(true)}
+          onPronunciation={() => setPronunciationOpen(true)}
+          otherExampleEnabled={hasOtherExamples}
+        />
+      )}
+
+      <div className="shrink-0 p-4 pb-8 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <RatingButtons onRate={onRate} />
       </div>
+
+      <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
+      <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
+      <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
+      <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
     </>
   )
 }
@@ -279,10 +304,18 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
 function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [isRevealed, setIsRevealed] = useState(false)
+  const [wasIncorrectSaved, setWasIncorrectSaved] = useState(false)
+
+  // Sheet states
+  const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
+  const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
+  const [wordInfoOpen, setWordInfoOpen] = useState(false)
+  const [pronunciationOpen, setPronunciationOpen] = useState(false)
 
   useEffect(() => {
     setSelectedChoice(null)
     setIsRevealed(false)
+    setWasIncorrectSaved(false)
   }, [card, currentIndex])
 
   const choices = useMemo(() => {
@@ -301,9 +334,21 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
   }, [card, cards, currentIndex])
 
   const isCorrect = selectedChoice === card.definition
+  const isAnswered = isRevealed
 
   const handleReveal = () => {
     setIsRevealed(true)
+    // Save to wrong notes on incorrect answer
+    if (selectedChoice && selectedChoice !== card.definition && !wasIncorrectSaved) {
+      setWasIncorrectSaved(true)
+      saveWrongNote({
+        word: card.word,
+        userAnswer: selectedChoice,
+        correctAnswer: card.definition,
+        koSentence: "",
+        enSentenceWithBlank: "",
+      })
+    }
   }
 
   return (
@@ -351,7 +396,19 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
         </div>
       </div>
 
-      <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      {/* ActionBar shown after answer */}
+      {isAnswered && (
+        <ActionBar
+          onOtherExample={() => {}}
+          onWrongNotes={() => setWrongNotesOpen(true)}
+          onAiQuestion={() => setAiQuestionOpen(true)}
+          onWordInfo={() => setWordInfoOpen(true)}
+          onPronunciation={() => setPronunciationOpen(true)}
+          otherExampleEnabled={false}
+        />
+      )}
+
+      <div className="shrink-0 p-4 pb-8 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         {!isRevealed ? (
           <Button className="w-full py-6 text-lg font-medium" onClick={handleReveal} disabled={!selectedChoice}>
             정답 확인
@@ -370,6 +427,11 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
           </div>
         )}
       </div>
+
+      <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
+      <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
+      <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
+      <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
     </>
   )
 }
@@ -382,6 +444,8 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
   const [showAnswer, setShowAnswer] = useState(false)
   const [wasIncorrect, setWasIncorrect] = useState(false)
   const [exampleIndex, setExampleIndex] = useState(0)
+  const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [showError, setShowError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Sheet states
@@ -409,6 +473,8 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
     setShowAnswer(false)
     setWasIncorrect(false)
     setExampleIndex(0)
+    setHasSubmitted(false)
+    setShowError(false)
     inputRef.current?.focus()
   }, [typingCard])
 
@@ -419,11 +485,14 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
     e?.preventDefault()
     if (!userInput.trim()) return
 
+    setHasSubmitted(true)
+
     if (normalizedInput === normalizedAnswer) {
       setStatus("correct")
+      setShowError(false)
     } else {
       setStatus("incorrect")
-      // Save to wrong notes only on first incorrect attempt
+      setShowError(true)
       if (!wasIncorrect) {
         setWasIncorrect(true)
         saveWrongNote({
@@ -439,9 +508,7 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
 
   const handleInputChange = (value: string) => {
     setUserInput(value)
-    if (status === "incorrect") {
-      setStatus("idle")
-    }
+    setShowError(false)
   }
 
   const handleHint = () => {
@@ -494,8 +561,10 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
     )
   }
 
-  const showInputUI = (status === "idle" || status === "incorrect") && !showAnswer
-  const showActionBar = status === "correct" || showAnswer
+  const hasOtherExamples = typingCard.exampleCandidates && typingCard.exampleCandidates.length > 1
+
+  const showInputUI = status !== "correct" && !showAnswer
+  const showActionBar = hasSubmitted || showAnswer
 
   return (
     <>
@@ -511,7 +580,7 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
           </p>
         </div>
 
-        {status === "incorrect" && !showAnswer && (
+        {showError && (
           <div className="bg-red-100 text-red-700 rounded-xl p-3 mb-4 text-center font-medium">
             정답을 확인하고, 다시 입력해 보세요.
           </div>
@@ -570,10 +639,20 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
                 확인
               </Button>
             </div>
+
+            {showActionBar && (
+              <ActionBar
+                onOtherExample={handleOtherExample}
+                onWrongNotes={() => setWrongNotesOpen(true)}
+                onAiQuestion={() => setAiQuestionOpen(true)}
+                onWordInfo={() => setWordInfoOpen(true)}
+                onPronunciation={() => setPronunciationOpen(true)}
+                otherExampleEnabled={hasOtherExamples ?? false}
+              />
+            )}
           </div>
         ) : (
           <div className="space-y-0">
-            {/* Result feedback */}
             <div className="p-4">
               {status === "correct" && (
                 <div className="bg-green-100 text-green-700 rounded-xl p-3 text-center font-medium flex items-center justify-center gap-2">
@@ -590,7 +669,6 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
               )}
             </div>
 
-            {/* Action bar - shown after grading */}
             {showActionBar && (
               <ActionBar
                 onOtherExample={handleOtherExample}
@@ -598,10 +676,10 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
                 onAiQuestion={() => setAiQuestionOpen(true)}
                 onWordInfo={() => setWordInfoOpen(true)}
                 onPronunciation={() => setPronunciationOpen(true)}
+                otherExampleEnabled={hasOtherExamples ?? false}
               />
             )}
 
-            {/* Rating buttons */}
             <div className="p-4 pt-0 pb-8">
               <RatingButtons onRate={onRate} />
             </div>
@@ -609,104 +687,10 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
         )}
       </div>
 
-      {/* Bottom sheets */}
       <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
       <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
       <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
       <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
-    </>
-  )
-}
-
-function LegacyTypingMode({ card, onRate }: ModeProps) {
-  const [userInput, setUserInput] = useState("")
-  const [isRevealed, setIsRevealed] = useState(false)
-
-  useEffect(() => {
-    setUserInput("")
-    setIsRevealed(false)
-  }, [card])
-
-  const normalizedInput = userInput.trim().toLowerCase()
-  const normalizedAnswer = card.word.trim().toLowerCase()
-  const isCorrect = normalizedInput === normalizedAnswer
-
-  const submitAnswer = () => {
-    if (userInput.trim()) {
-      setIsRevealed(true)
-    }
-  }
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    submitAnswer()
-  }
-
-  return (
-    <>
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-sm space-y-6">
-          <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
-            <span className="text-xs text-gray-400 mb-2 block">다음 뜻에 해당하는 영단어는?</span>
-            <span className="text-2xl font-bold text-indigo-600">{card.definition}</span>
-          </div>
-
-          <form onSubmit={handleFormSubmit} className="space-y-4">
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              disabled={isRevealed}
-              placeholder="영단어를 입력하세요"
-              className={cn(
-                "w-full p-4 rounded-xl border-2 text-center text-xl font-medium transition-all outline-none",
-                isRevealed
-                  ? isCorrect
-                    ? "bg-green-50 border-green-500 text-green-700"
-                    : "bg-red-50 border-red-500 text-red-700"
-                  : "bg-white border-gray-200 focus:border-indigo-500",
-              )}
-              autoFocus
-            />
-          </form>
-
-          {isRevealed && (
-            <div
-              className={cn(
-                "text-center py-3 rounded-xl font-medium",
-                isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700",
-              )}
-            >
-              {isCorrect ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Check className="w-5 h-5" />
-                  <span>정답입니다!</span>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-center gap-2">
-                    <XIcon className="w-5 h-5" />
-                    <span>오답!</span>
-                  </div>
-                  <div className="text-sm">
-                    정답: <strong>{card.word}</strong>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        {!isRevealed ? (
-          <Button className="w-full py-6 text-lg font-medium" onClick={submitAnswer} disabled={!userInput.trim()}>
-            정답 확인
-          </Button>
-        ) : (
-          <RatingButtons onRate={onRate} />
-        )}
-      </div>
     </>
   )
 }
