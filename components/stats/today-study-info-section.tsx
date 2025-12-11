@@ -66,18 +66,19 @@ function formatPercent(value?: number): string {
 }
 
 function buildSubLabel(newCount?: number, reviewCount?: number): string {
+  const hasNew = newCount != null
+  const hasReview = reviewCount != null
+
+  // 둘 다 없으면 "-"로 단일 표시
+  if (!hasNew && !hasReview) {
+    return "-"
+  }
+
   const parts: string[] = []
-  if (newCount != null) {
-    parts.push(`새 문제 ${newCount}`)
-  } else {
-    parts.push("새 문제 -")
-  }
-  if (reviewCount != null) {
-    parts.push(`복습 문제 ${reviewCount}`)
-  } else {
-    parts.push("복습 문제 -")
-  }
-  return parts.join("  ")
+  parts.push(`새 문제 ${hasNew ? newCount : "-"}`)
+  parts.push(`복습 문제 ${hasReview ? reviewCount : "-"}`)
+
+  return parts.join(" / ")
 }
 
 export function TodayStudyInfoSection({ isLoading, data }: TodayStudyInfoSectionProps) {

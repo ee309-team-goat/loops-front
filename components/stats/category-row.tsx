@@ -14,7 +14,8 @@ interface CategoryRowProps {
 }
 
 export function CategoryRow({ icon, title, rightLabel, progressPercent, subLabel, onClick }: CategoryRowProps) {
-  const safeProgress = Number.isNaN(progressPercent) ? 0 : Math.min(100, Math.max(0, progressPercent))
+  const normalized = typeof progressPercent === "number" && Number.isFinite(progressPercent) ? progressPercent : 0
+  const safeProgress = Math.min(100, Math.max(0, normalized))
 
   return (
     <div className="flex flex-col gap-2 py-3 border-b border-gray-100 last:border-b-0 cursor-pointer" onClick={onClick}>
