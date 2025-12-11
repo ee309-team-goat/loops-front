@@ -289,9 +289,12 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
         />
       )}
 
-      <div className="shrink-0 p-4 pb-8 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <RatingButtons onRate={onRate} />
-      </div>
+      {/* RatingButtons shown after card is flipped */}
+      {isFlipped && (
+        <div className="shrink-0 p-4 pb-8 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+          <RatingButtons onRate={onRate} />
+        </div>
+      )}
 
       <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
       <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
@@ -464,7 +467,6 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
   const [showAnswer, setShowAnswer] = useState(false)
   const [wasIncorrect, setWasIncorrect] = useState(false)
   const [exampleIndex, setExampleIndex] = useState(0)
-  const [hasSubmitted, setHasSubmitted] = useState(false)
   const [showError, setShowError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -493,7 +495,6 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
     setShowAnswer(false)
     setWasIncorrect(false)
     setExampleIndex(0)
-    setHasSubmitted(false)
     setShowError(false)
     inputRef.current?.focus()
   }, [typingCard])
@@ -504,8 +505,6 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!userInput.trim()) return
-
-    setHasSubmitted(true)
 
     if (normalizedInput === normalizedAnswer) {
       setStatus("correct")
@@ -584,7 +583,7 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
   const hasOtherExamples = typingCard.exampleCandidates && typingCard.exampleCandidates.length > 1
 
   const showInputUI = status !== "correct" && !showAnswer
-  const showActionBar = hasSubmitted || showAnswer
+  const showActionBar = status === "correct" || showAnswer
 
   return (
     <>
@@ -659,17 +658,6 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
                 확인
               </Button>
             </div>
-
-            {showActionBar && (
-              <ActionBar
-                onOtherExample={handleOtherExample}
-                onWrongNotes={() => setWrongNotesOpen(true)}
-                onAiQuestion={() => setAiQuestionOpen(true)}
-                onWordInfo={() => setWordInfoOpen(true)}
-                onPronunciation={() => setPronunciationOpen(true)}
-                otherExampleEnabled={hasOtherExamples ?? false}
-              />
-            )}
           </div>
         ) : (
           <div className="space-y-0">
