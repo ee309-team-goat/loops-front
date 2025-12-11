@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MOCK_CARDS } from "@/lib/api/client"
@@ -498,20 +498,12 @@ function SentenceTypingMode({
   const [showError, setShowError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Sheet states
-  // const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
-  // const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
-  // const [wordInfoOpen, setWordInfoOpen] = useState(false)
-  // const [pronunciationOpen, setPronunciationOpen] = useState(false)
-
   const answer = typingCard.word
 
   const hintPrefix = answer.slice(0, revealedCount)
   const fullInput = hintPrefix + typedSuffix
-  const normalizedInput = fullInput.trim().toLowerCase()
   const normalizedAnswer = answer.trim().toLowerCase()
 
-  // Get current example (either from candidates or default)
   const currentExample = useMemo(() => {
     if (typingCard.exampleCandidates && typingCard.exampleCandidates.length > 0) {
       const idx = exampleIndex % typingCard.exampleCandidates.length
@@ -519,6 +511,51 @@ function SentenceTypingMode({
     }
     return { koSentence: typingCard.koSentence, enSentenceWithBlank: typingCard.enSentenceWithBlank }
   }, [typingCard, exampleIndex])
+
+  const evaluateInput = useCallback(
+    (nextFullInput: string) => {
+      const trimmed = nextFullInput.trim().toLowerCase()
+
+      // 1) Empty input → idle
+      if (!trimmed) {
+        setStatus("idle")
+        setShowError(false)
+        return
+      }
+
+      // 2) Correct answer
+      if (trimmed === normalizedAnswer) {
+        setStatus("correct")
+        setShowError(false)
+        inputRef.current?.blur()
+        return
+      }
+
+      // 3) Still a prefix of the answer (in progress)
+      if (normalizedAnswer.startsWith(trimmed)) {
+        setStatus("idle")
+        setShowError(false)
+        return
+      }
+
+      // 4) Definite incorrect
+      setStatus("incorrect")
+      setShowError(true)
+
+      // Save wrong note only on first incorrect
+      if (!wasIncorrect) {
+        setWasIncorrect(true)
+        saveWrongNote({
+          word: typingCard.word,
+          userAnswer: nextFullInput.trim(),
+          correctAnswer: answer,
+          koSentence: currentExample.koSentence,
+          enSentenceWithBlank: currentExample.enSentenceWithBlank,
+        })
+      }
+    },
+    [normalizedAnswer, wasIncorrect, typingCard.word, answer, currentExample],
+  )
 
   useEffect(() => {
     setTypedSuffix("")
@@ -535,32 +572,14 @@ function SentenceTypingMode({
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!fullInput.trim()) return
-
-    if (normalizedInput === normalizedAnswer) {
-      setStatus("correct")
-      setShowError(false)
-    } else {
-      setStatus("incorrect")
-      setShowError(true)
-      if (!wasIncorrect) {
-        setWasIncorrect(true)
-        saveWrongNote({
-          word: typingCard.word,
-          userAnswer: fullInput.trim(),
-          correctAnswer: answer,
-          koSentence: currentExample.koSentence,
-          enSentenceWithBlank: currentExample.enSentenceWithBlank,
-        })
-      }
-    }
+    evaluateInput(fullInput)
   }
 
   const handleInputChange = (value: string) => {
-    setShowError(false)
-
     // No hints yet - treat entire input as suffix
     if (revealedCount === 0) {
       setTypedSuffix(value)
+      evaluateInput(value)
       return
     }
 
@@ -569,6 +588,7 @@ function SentenceTypingMode({
     // User trying to delete into prefix - clear suffix only
     if (value.length <= prefix.length) {
       setTypedSuffix("")
+      evaluateInput(prefix)
       return
     }
 
@@ -576,27 +596,33 @@ function SentenceTypingMode({
     if (value.startsWith(prefix)) {
       const nextSuffix = value.slice(prefix.length)
       setTypedSuffix(nextSuffix)
+      evaluateInput(prefix + nextSuffix)
       return
     }
 
-    // User modified prefix area - ignore (keep current suffix)
+    // User modified prefix area - ignore (keep current suffix), still evaluate
+    evaluateInput(fullInput)
   }
 
   const handleHint = () => {
     if (revealedCount >= answer.length) return
 
     const newHintChar = answer[revealedCount]
+    let nextSuffix = typedSuffix
 
     // If user already typed this char at the start of suffix, remove it
-    setTypedSuffix((prevSuffix) => {
-      if (prevSuffix.length > 0 && prevSuffix[0].toLowerCase() === newHintChar.toLowerCase()) {
-        return prevSuffix.slice(1)
-      }
-      return prevSuffix
-    })
+    if (typedSuffix.length > 0 && typedSuffix[0].toLowerCase() === newHintChar.toLowerCase()) {
+      nextSuffix = typedSuffix.slice(1)
+      setTypedSuffix(nextSuffix)
+    }
 
-    setRevealedCount((prev) => Math.min(prev + 1, answer.length))
+    const nextRevealedCount = Math.min(revealedCount + 1, answer.length)
+    setRevealedCount(nextRevealedCount)
     setUsedHint(true)
+
+    // Evaluate with updated prefix + suffix
+    const nextFullInput = answer.slice(0, nextRevealedCount) + nextSuffix
+    evaluateInput(nextFullInput)
   }
 
   const handleShowAnswer = () => {
@@ -636,7 +662,14 @@ function SentenceTypingMode({
             {answer}
           </span>
         ) : (
-          <span className="inline-block min-w-[80px] border-b-2 border-indigo-300 bg-indigo-50 px-2 py-1 mx-1 font-mono">
+          <span
+            className={cn(
+              "inline-block min-w-[80px] border-b-2 px-2 py-1 mx-1 font-mono",
+              status === "incorrect"
+                ? "border-red-400 bg-red-50 text-red-700"
+                : "border-indigo-300 bg-indigo-50 text-gray-900",
+            )}
+          >
             {blankDisplay}
           </span>
         )}
@@ -666,7 +699,7 @@ function SentenceTypingMode({
 
         {showError && (
           <div className="bg-red-100 text-red-700 rounded-xl p-3 mb-4 text-center font-medium">
-            정답을 확인하고, 다시 입력해 보세요.
+            철자가 달라요. 다시 입력해 보거나, 필요하면 &apos;정답 보기&apos;를 눌러 확인해 보세요.
           </div>
         )}
 
@@ -685,7 +718,12 @@ function SentenceTypingMode({
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               placeholder="영단어를 입력하세요"
-              className="w-full p-4 rounded-xl border-2 border-gray-200 text-center text-xl font-medium focus:border-indigo-500 outline-none"
+              className={cn(
+                "w-full p-4 rounded-xl border-2 text-center text-xl font-medium outline-none transition-colors",
+                status === "incorrect"
+                  ? "border-red-400 bg-red-50 text-red-700 focus:border-red-500"
+                  : "border-gray-200 focus:border-indigo-500",
+              )}
               autoFocus
             />
 
@@ -713,15 +751,6 @@ function SentenceTypingMode({
                   <span className="truncate">정답 보기</span>
                 </Button>
               )}
-
-              <Button
-                className="min-w-0 flex-1 basis-full py-3 text-sm bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => handleSubmit()}
-                disabled={!typedSuffix.trim() && revealedCount === 0}
-              >
-                <Check className="w-4 h-4 mr-1 shrink-0" />
-                확인
-              </Button>
             </div>
           </div>
         ) : (
@@ -742,7 +771,6 @@ function SentenceTypingMode({
               )}
             </div>
 
-            {/* ActionBar uses props handlers */}
             {showActionBar && (
               <ActionBar
                 onOtherExample={handleOtherExample}
