@@ -305,6 +305,7 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [isRevealed, setIsRevealed] = useState(false)
   const [wasIncorrectSaved, setWasIncorrectSaved] = useState(false)
+  const [exampleIndex, setExampleIndex] = useState(0)
 
   // Sheet states
   const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
@@ -316,6 +317,7 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
     setSelectedChoice(null)
     setIsRevealed(false)
     setWasIncorrectSaved(false)
+    setExampleIndex(0)
   }, [card, currentIndex])
 
   const choices = useMemo(() => {
@@ -333,8 +335,17 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
     return allChoices.sort(() => Math.random() - 0.5)
   }, [card, cards, currentIndex])
 
-  const isCorrect = selectedChoice === card.definition
-  const isAnswered = isRevealed
+  const mockExamples = useMemo(
+    () => [
+      { sentence: `The word "${card.word}" means ${card.definition}.` },
+      { sentence: `${card.word}: commonly used in academic contexts.` },
+      { sentence: `Example: This demonstrates the meaning of ${card.word}.` },
+    ],
+    [card],
+  )
+
+  const currentExample = mockExamples[exampleIndex]
+  const hasOtherExamples = mockExamples.length > 1
 
   const handleReveal = () => {
     setIsRevealed(true)
@@ -351,9 +362,18 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
     }
   }
 
+  const handleOtherExample = () => {
+    if (hasOtherExamples) {
+      setExampleIndex((prev) => (prev + 1) % mockExamples.length)
+    }
+  }
+
+  const isCorrect = selectedChoice === card.definition
+  const isAnswered = isRevealed
+
   return (
     <>
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-y-auto">
         <div className="w-full max-w-sm space-y-6">
           <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
             <span className="text-xs text-gray-400 mb-2 block">다음 단어의 뜻은?</span>
@@ -399,12 +419,12 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
       {/* ActionBar shown after answer */}
       {isAnswered && (
         <ActionBar
-          onOtherExample={() => {}}
+          onOtherExample={handleOtherExample}
           onWrongNotes={() => setWrongNotesOpen(true)}
           onAiQuestion={() => setAiQuestionOpen(true)}
           onWordInfo={() => setWordInfoOpen(true)}
           onPronunciation={() => setPronunciationOpen(true)}
-          otherExampleEnabled={false}
+          otherExampleEnabled={hasOtherExamples}
         />
       )}
 
@@ -704,6 +724,20 @@ const MOCK_TYPING_CARDS: TypingCard[] = [
     koSentence: "네가 쉴 새 없이 질문해대니까 내가 집중을 할 수가 없잖아.",
     enSentenceWithBlank: "It's hard to ____ when you keep asking me all these questions.",
     explanation: "concentrate = 집중하다",
+    exampleCandidates: [
+      {
+        koSentence: "네가 쉴 새 없이 질문해대니까 내가 집중을 할 수가 없잖아.",
+        enSentenceWithBlank: "It's hard to ____ when you keep asking me all these questions.",
+      },
+      {
+        koSentence: "시끄러운 환경에서는 집중하기 어렵다.",
+        enSentenceWithBlank: "It is difficult to ____ in a noisy environment.",
+      },
+      {
+        koSentence: "그녀는 공부에 집중하려고 노력했다.",
+        enSentenceWithBlank: "She tried to ____ on her studies.",
+      },
+    ],
   },
   {
     id: "2",
@@ -713,6 +747,16 @@ const MOCK_TYPING_CARDS: TypingCard[] = [
     koSentence: "경찰이 범죄 현장 가까이에서 주요 용의자를 체포했습니다.",
     enSentenceWithBlank: "Police arrested the main ____ near the scene of the crime.",
     explanation: "suspect = 용의자, 혐의자",
+    exampleCandidates: [
+      {
+        koSentence: "경찰이 범죄 현장 가까이에서 주요 용의자를 체포했습니다.",
+        enSentenceWithBlank: "Police arrested the main ____ near the scene of the crime.",
+      },
+      {
+        koSentence: "용의자는 범행을 부인하고 있다.",
+        enSentenceWithBlank: "The ____ is denying the crime.",
+      },
+    ],
   },
   {
     id: "3",
@@ -722,6 +766,16 @@ const MOCK_TYPING_CARDS: TypingCard[] = [
     koSentence: "그 회사는 AI 분야의 혁신으로 알려져 있다.",
     enSentenceWithBlank: "The company is known for its ____ in AI.",
     explanation: "innovation = 혁신",
+    exampleCandidates: [
+      {
+        koSentence: "그 회사는 AI 분야의 혁신으로 알려져 있다.",
+        enSentenceWithBlank: "The company is known for its ____ in AI.",
+      },
+      {
+        koSentence: "기술 혁신이 우리 삶을 바꾸고 있다.",
+        enSentenceWithBlank: "Technological ____ is changing our lives.",
+      },
+    ],
   },
   {
     id: "4",
@@ -731,6 +785,12 @@ const MOCK_TYPING_CARDS: TypingCard[] = [
     koSentence: "이 연구는 아이들의 정신적 회복력에 관한 것이다.",
     enSentenceWithBlank: "This study is about children's mental ____.",
     explanation: "resilience = 회복력, 탄성",
+    exampleCandidates: [
+      {
+        koSentence: "이 연구는 아이들의 정신적 회복력에 관한 것이다.",
+        enSentenceWithBlank: "This study is about children's mental ____.",
+      },
+    ],
   },
   {
     id: "5",
@@ -740,6 +800,20 @@ const MOCK_TYPING_CARDS: TypingCard[] = [
     koSentence: "우리는 지속 가능한 에너지원을 찾아야 합니다.",
     enSentenceWithBlank: "We need to find ____ energy sources.",
     explanation: "sustainable = 지속 가능한",
+    exampleCandidates: [
+      {
+        koSentence: "우리는 지속 가능한 에너지원을 찾아야 합니다.",
+        enSentenceWithBlank: "We need to find ____ energy sources.",
+      },
+      {
+        koSentence: "지속 가능한 발전이 중요하다.",
+        enSentenceWithBlank: "____ development is important.",
+      },
+      {
+        koSentence: "환경을 위해 지속 가능한 선택을 해야 한다.",
+        enSentenceWithBlank: "We should make ____ choices for the environment.",
+      },
+    ],
   },
 ]
 
