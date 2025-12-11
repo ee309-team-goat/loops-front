@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { ActionBar } from "@/components/learn/action-bar"
 import { WrongNotesSheet } from "@/components/learn/sheets/wrong-notes-sheet"
 import { PlaceholderSheet } from "@/components/learn/sheets/placeholder-sheet"
+import { PronunciationSheet } from "@/components/learn/sheets/pronunciation-sheet"
 import { saveWrongNote } from "@/lib/wrong-notes"
 import {
   AlertDialog,
@@ -998,7 +999,11 @@ export default function LearnPage() {
         <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
         <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
         <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
-        <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
+        <PronunciationSheet
+          open={pronunciationOpen}
+          onOpenChange={setPronunciationOpen}
+          targetWord={session.type === "typing" ? currentTypingCard.word : currentCard.word}
+        />
 
         <AlertDialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
           <AlertDialogContent className="max-w-sm rounded-2xl">
