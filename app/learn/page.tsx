@@ -393,12 +393,19 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
-    if (!userInput.trim() || status !== "idle") return
+    if (!userInput.trim()) return
 
     if (normalizedInput === normalizedAnswer) {
       setStatus("correct")
     } else {
       setStatus("incorrect")
+    }
+  }
+
+  const handleInputChange = (value: string) => {
+    setUserInput(value)
+    if (status === "incorrect") {
+      setStatus("idle")
     }
   }
 
@@ -411,16 +418,13 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
 
   const handleShowAnswer = () => {
     setShowAnswer(true)
-    setStatus("incorrect")
   }
 
-  // Build hint string: revealed chars + underscores for hidden
   const hintDisplay = answer
     .split("")
     .map((char, i) => (i < revealedCount ? char : "_"))
     .join("")
 
-  // Parse sentence to highlight the blank/answer
   const renderSentence = () => {
     const parts = typingCard.enSentenceWithBlank.split("____")
     if (parts.length !== 2) {
@@ -449,10 +453,11 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
     )
   }
 
+  const showInputUI = (status === "idle" || status === "incorrect") && !showAnswer
+
   return (
     <>
       <div className="flex-1 flex flex-col p-4 bg-sky-50">
-        {/* Korean sentence */}
         <div className="bg-sky-100 rounded-2xl p-4 mb-4">
           <p className="text-lg text-gray-800 leading-relaxed">
             {typingCard.koSentence.split(typingCard.definition).map((part, i, arr) => (
@@ -464,69 +469,54 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
           </p>
         </div>
 
-        {/* Error message */}
         {status === "incorrect" && !showAnswer && (
           <div className="bg-red-100 text-red-700 rounded-xl p-3 mb-4 text-center font-medium">
             정답을 확인하고, 다시 입력해 보세요.
           </div>
         )}
 
-        {/* English sentence with blank */}
         <div className="bg-white rounded-2xl p-6 shadow-sm mb-4">{renderSentence()}</div>
 
-        {/* Source info */}
         <p className="text-xs text-gray-400 text-center mb-4">[어휘 출처] 능률 VOCA 어원편, DAY 17</p>
+      </div>
 
-        {/* Hidden input for typing */}
-        {status === "idle" && !showAnswer && (
-          <form onSubmit={handleSubmit} className="sr-only">
+      <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        {showInputUI ? (
+          <div className="space-y-4">
             <input
               ref={inputRef}
               type="text"
               value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              autoFocus
-            />
-          </form>
-        )}
-      </div>
-
-      {/* Bottom bar */}
-      <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        {status === "idle" && !showAnswer ? (
-          <div className="space-y-4">
-            {/* Visible input */}
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
+              onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               placeholder="영단어를 입력하세요"
               className="w-full p-4 rounded-xl border-2 border-gray-200 text-center text-xl font-medium focus:border-indigo-500 outline-none"
               autoFocus
             />
 
-            {/* Action buttons */}
             <div className="flex gap-3">
-              {!usedHint ? (
+              {revealedCount < answer.length && (
                 <Button
                   variant="outline"
                   className="flex-1 py-4 text-indigo-600 border-indigo-200 bg-transparent"
                   onClick={handleHint}
                 >
                   <HelpCircle className="w-4 h-4 mr-2" />
-                  힌트 보기
+                  힌트 보기 {revealedCount > 0 && `(${revealedCount}/${answer.length})`}
                 </Button>
-              ) : (
+              )}
+
+              {usedHint && (
                 <Button
                   variant="outline"
-                  className="flex-1 py-4 text-indigo-600 border-indigo-200 bg-transparent"
+                  className="flex-1 py-4 text-orange-600 border-orange-200 bg-transparent"
                   onClick={handleShowAnswer}
                 >
                   <Eye className="w-4 h-4 mr-2" />
                   정답 보기
                 </Button>
               )}
+
               <Button
                 className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700"
                 onClick={() => handleSubmit()}
@@ -707,15 +697,24 @@ export default function LearnPage() {
   const { studyMode } = useCourseStore()
 
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [cards] = useState(MOCK_CARDS)
-  const [typingCards] = useState(MOCK_TYPING_CARDS)
 
-  const currentCard = cards[currentIndex]
-  const currentTypingCard = typingCards[currentIndex % typingCards.length]
-  const progress = (currentIndex / cards.length) * 100
+  const session = useMemo(() => {
+    if (studyMode === "typing") {
+      return { type: "typing" as const, cards: MOCK_TYPING_CARDS }
+    }
+    return { type: "standard" as const, cards: MOCK_CARDS }
+  }, [studyMode])
 
-  const handleRate = () => {
-    if (currentIndex < cards.length - 1) {
+  const total = session.cards.length
+  const progress = (currentIndex / total) * 100
+
+  const currentCard = session.type === "standard" ? session.cards[currentIndex] : MOCK_CARDS[0]
+  const currentTypingCard = session.type === "typing" ? session.cards[currentIndex] : MOCK_TYPING_CARDS[0]
+
+  const handleRate = (rating: number) => {
+    void rating
+
+    if (currentIndex < total - 1) {
       setTimeout(() => {
         setCurrentIndex((prev) => prev + 1)
       }, 300)
@@ -726,7 +725,7 @@ export default function LearnPage() {
 
   const modeProps: ModeProps = {
     card: currentCard,
-    cards,
+    cards: session.type === "standard" ? session.cards : MOCK_CARDS,
     currentIndex,
     onRate: handleRate,
     playbackSpeed: settings.playbackSpeed,
@@ -743,7 +742,7 @@ export default function LearnPage() {
             <div className="flex justify-between text-xs text-gray-500 mb-1">
               <span>오늘의 학습</span>
               <span>
-                {currentIndex + 1} / {cards.length}
+                {currentIndex + 1} / {total}
               </span>
             </div>
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
