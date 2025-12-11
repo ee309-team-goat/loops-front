@@ -7,11 +7,16 @@ import { ArrowLeft, TrendingUp, AlertCircle, ChevronLeft, ChevronRight } from "l
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { AuthRequired } from "@/components/auth-required"
 import { TodayStudyInfoSection } from "@/components/stats/today-study-info-section"
+import type { PeriodValue } from "@/components/stats/period-segment"
+import { StudyTimeCard } from "@/components/stats/study-time-card"
+import { StudyVolumeCard } from "@/components/stats/study-volume-card"
 
 export default function StatisticsPage() {
   const router = useRouter()
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<"period" | "study" | "vocab">("period")
+  const [studyTimePeriod, setStudyTimePeriod] = useState<PeriodValue>("week")
+  const [studyVolumePeriod, setStudyVolumePeriod] = useState<PeriodValue>("week")
 
   const weeklyData = useMemo(() => {
     const today = new Date()
@@ -119,6 +124,9 @@ export default function StatisticsPage() {
             <>
               {/* 기간별 학습 정보 title */}
               <h2 className="text-base font-bold text-gray-900">기간별 학습 정보</h2>
+
+              <StudyTimeCard period={studyTimePeriod} onPeriodChange={setStudyTimePeriod} />
+              <StudyVolumeCard period={studyVolumePeriod} onPeriodChange={setStudyVolumePeriod} />
 
               {/* Weekly Stats */}
               <div className="bg-white rounded-2xl p-6 space-y-4">
