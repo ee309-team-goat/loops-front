@@ -25,7 +25,14 @@ interface TypingCard extends Card {
   exampleCandidates?: Array<{ koSentence: string; enSentenceWithBlank: string }>
 }
 
-interface ModeProps {
+interface SheetHandlers {
+  openWrongNotes: () => void
+  openAiQuestion: () => void
+  openWordInfo: () => void
+  openPronunciation: () => void
+}
+
+interface ModeProps extends SheetHandlers {
   card: Card
   cards: Card[]
   currentIndex: number
@@ -84,7 +91,15 @@ function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
   )
 }
 
-function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
+function FlashcardMode({
+  card,
+  onRate,
+  playbackSpeed,
+  openWrongNotes,
+  openAiQuestion,
+  openWordInfo,
+  openPronunciation,
+}: ModeProps) {
   const { settings } = useSettings()
   const [isFlipped, setIsFlipped] = useState(false)
   const [showTutorial, setShowTutorial] = useState(true)
@@ -95,10 +110,10 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
   const prevIsFlipped = useRef(false)
 
   // Sheet states
-  const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
-  const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
-  const [wordInfoOpen, setWordInfoOpen] = useState(false)
-  const [pronunciationOpen, setPronunciationOpen] = useState(false)
+  // const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
+  // const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
+  // const [wordInfoOpen, setWordInfoOpen] = useState(false)
+  // const [pronunciationOpen, setPronunciationOpen] = useState(false)
 
   const mockExamples = [
     {
@@ -277,14 +292,14 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
         </div>
       </div>
 
-      {/* ActionBar shown after flip */}
+      {/* ActionBar shown after flip - use props handlers */}
       {isFlipped && (
         <ActionBar
           onOtherExample={handleOtherExample}
-          onWrongNotes={() => setWrongNotesOpen(true)}
-          onAiQuestion={() => setAiQuestionOpen(true)}
-          onWordInfo={() => setWordInfoOpen(true)}
-          onPronunciation={() => setPronunciationOpen(true)}
+          onWrongNotes={openWrongNotes}
+          onAiQuestion={openAiQuestion}
+          onWordInfo={openWordInfo}
+          onPronunciation={openPronunciation}
           otherExampleEnabled={hasOtherExamples}
         />
       )}
@@ -295,26 +310,30 @@ function FlashcardMode({ card, onRate, playbackSpeed }: ModeProps) {
           <RatingButtons onRate={onRate} />
         </div>
       )}
-
-      <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
-      <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
-      <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
-      <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
     </>
   )
 }
 
-function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
+function MultipleChoiceMode({
+  card,
+  cards,
+  currentIndex,
+  onRate,
+  openWrongNotes,
+  openAiQuestion,
+  openWordInfo,
+  openPronunciation,
+}: ModeProps) {
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [isRevealed, setIsRevealed] = useState(false)
   const [wasIncorrectSaved, setWasIncorrectSaved] = useState(false)
   const [exampleIndex, setExampleIndex] = useState(0)
 
   // Sheet states
-  const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
-  const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
-  const [wordInfoOpen, setWordInfoOpen] = useState(false)
-  const [pronunciationOpen, setPronunciationOpen] = useState(false)
+  // const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
+  // const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
+  // const [wordInfoOpen, setWordInfoOpen] = useState(false)
+  // const [pronunciationOpen, setPronunciationOpen] = useState(false)
 
   useEffect(() => {
     setSelectedChoice(null)
@@ -416,17 +435,24 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
               )
             })}
           </div>
+
+          {isAnswered && (
+            <div className="mt-4 bg-gray-50 rounded-xl p-4 text-sm text-gray-700">
+              <span className="text-xs text-gray-400 block mb-1">예문</span>
+              <p>{currentExample.sentence}</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ActionBar shown after answer */}
+      {/* ActionBar shown after answer - use props handlers */}
       {isAnswered && (
         <ActionBar
           onOtherExample={handleOtherExample}
-          onWrongNotes={() => setWrongNotesOpen(true)}
-          onAiQuestion={() => setAiQuestionOpen(true)}
-          onWordInfo={() => setWordInfoOpen(true)}
-          onPronunciation={() => setPronunciationOpen(true)}
+          onWrongNotes={openWrongNotes}
+          onAiQuestion={openAiQuestion}
+          onWordInfo={openWordInfo}
+          onPronunciation={openPronunciation}
           otherExampleEnabled={hasOtherExamples}
         />
       )}
@@ -450,17 +476,19 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
           </div>
         )}
       </div>
-
-      <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
-      <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
-      <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
-      <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
     </>
   )
 }
 
-function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
-  const [userInput, setUserInput] = useState("")
+function SentenceTypingMode({
+  typingCard,
+  onRate,
+  openWrongNotes,
+  openAiQuestion,
+  openWordInfo,
+  openPronunciation,
+}: TypingModeProps) {
+  const [typedSuffix, setTypedSuffix] = useState("")
   const [status, setStatus] = useState<"idle" | "correct" | "incorrect">("idle")
   const [revealedCount, setRevealedCount] = useState(0)
   const [usedHint, setUsedHint] = useState(false)
@@ -471,12 +499,17 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Sheet states
-  const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
-  const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
-  const [wordInfoOpen, setWordInfoOpen] = useState(false)
-  const [pronunciationOpen, setPronunciationOpen] = useState(false)
+  // const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
+  // const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
+  // const [wordInfoOpen, setWordInfoOpen] = useState(false)
+  // const [pronunciationOpen, setPronunciationOpen] = useState(false)
 
   const answer = typingCard.word
+
+  const hintPrefix = answer.slice(0, revealedCount)
+  const fullInput = hintPrefix + typedSuffix
+  const normalizedInput = fullInput.trim().toLowerCase()
+  const normalizedAnswer = answer.trim().toLowerCase()
 
   // Get current example (either from candidates or default)
   const currentExample = useMemo(() => {
@@ -488,7 +521,7 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
   }, [typingCard, exampleIndex])
 
   useEffect(() => {
-    setUserInput("")
+    setTypedSuffix("")
     setStatus("idle")
     setRevealedCount(0)
     setUsedHint(false)
@@ -499,12 +532,9 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
     inputRef.current?.focus()
   }, [typingCard])
 
-  const normalizedInput = userInput.trim().toLowerCase()
-  const normalizedAnswer = answer.trim().toLowerCase()
-
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
-    if (!userInput.trim()) return
+    if (!fullInput.trim()) return
 
     if (normalizedInput === normalizedAnswer) {
       setStatus("correct")
@@ -516,7 +546,7 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
         setWasIncorrect(true)
         saveWrongNote({
           word: typingCard.word,
-          userAnswer: userInput.trim(),
+          userAnswer: fullInput.trim(),
           correctAnswer: answer,
           koSentence: currentExample.koSentence,
           enSentenceWithBlank: currentExample.enSentenceWithBlank,
@@ -526,15 +556,47 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
   }
 
   const handleInputChange = (value: string) => {
-    setUserInput(value)
     setShowError(false)
+
+    // No hints yet - treat entire input as suffix
+    if (revealedCount === 0) {
+      setTypedSuffix(value)
+      return
+    }
+
+    const prefix = hintPrefix
+
+    // User trying to delete into prefix - clear suffix only
+    if (value.length <= prefix.length) {
+      setTypedSuffix("")
+      return
+    }
+
+    // Input starts with prefix - extract suffix
+    if (value.startsWith(prefix)) {
+      const nextSuffix = value.slice(prefix.length)
+      setTypedSuffix(nextSuffix)
+      return
+    }
+
+    // User modified prefix area - ignore (keep current suffix)
   }
 
   const handleHint = () => {
-    if (revealedCount < answer.length) {
-      setRevealedCount((prev) => prev + 1)
-      setUsedHint(true)
-    }
+    if (revealedCount >= answer.length) return
+
+    const newHintChar = answer[revealedCount]
+
+    // If user already typed this char at the start of suffix, remove it
+    setTypedSuffix((prevSuffix) => {
+      if (prevSuffix.length > 0 && prevSuffix[0].toLowerCase() === newHintChar.toLowerCase()) {
+        return prevSuffix.slice(1)
+      }
+      return prevSuffix
+    })
+
+    setRevealedCount((prev) => Math.min(prev + 1, answer.length))
+    setUsedHint(true)
   }
 
   const handleShowAnswer = () => {
@@ -547,10 +609,13 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
     }
   }
 
-  const hintDisplay = answer
-    .split("")
-    .map((char, i) => (i < revealedCount ? char : "_"))
-    .join("")
+  const blankDisplay = (() => {
+    const visible = fullInput
+    const maxLen = answer.length
+    if (visible.length >= maxLen) return visible.slice(0, maxLen)
+    const remaining = maxLen - visible.length
+    return visible + "_".repeat(remaining)
+  })()
 
   const renderSentence = () => {
     const parts = currentExample.enSentenceWithBlank.split("____")
@@ -572,7 +637,7 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
           </span>
         ) : (
           <span className="inline-block min-w-[80px] border-b-2 border-indigo-300 bg-indigo-50 px-2 py-1 mx-1 font-mono">
-            {userInput || hintDisplay}
+            {blankDisplay}
           </span>
         )}
         {parts[1]}
@@ -616,7 +681,7 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
             <input
               ref={inputRef}
               type="text"
-              value={userInput}
+              value={fullInput}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               placeholder="영단어를 입력하세요"
@@ -652,7 +717,7 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
               <Button
                 className="min-w-0 flex-1 basis-full py-3 text-sm bg-indigo-600 hover:bg-indigo-700"
                 onClick={() => handleSubmit()}
-                disabled={!userInput.trim()}
+                disabled={!typedSuffix.trim() && revealedCount === 0}
               >
                 <Check className="w-4 h-4 mr-1 shrink-0" />
                 확인
@@ -677,13 +742,14 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
               )}
             </div>
 
+            {/* ActionBar uses props handlers */}
             {showActionBar && (
               <ActionBar
                 onOtherExample={handleOtherExample}
-                onWrongNotes={() => setWrongNotesOpen(true)}
-                onAiQuestion={() => setAiQuestionOpen(true)}
-                onWordInfo={() => setWordInfoOpen(true)}
-                onPronunciation={() => setPronunciationOpen(true)}
+                onWrongNotes={openWrongNotes}
+                onAiQuestion={openAiQuestion}
+                onWordInfo={openWordInfo}
+                onPronunciation={openPronunciation}
                 otherExampleEnabled={hasOtherExamples ?? false}
               />
             )}
@@ -694,11 +760,6 @@ function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
           </div>
         )}
       </div>
-
-      <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
-      <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
-      <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
-      <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
     </>
   )
 }
@@ -812,6 +873,18 @@ export default function LearnPage() {
 
   const [currentIndex, setCurrentIndex] = useState(0)
 
+  const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
+  const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
+  const [wordInfoOpen, setWordInfoOpen] = useState(false)
+  const [pronunciationOpen, setPronunciationOpen] = useState(false)
+
+  const sheetHandlers: SheetHandlers = {
+    openWrongNotes: () => setWrongNotesOpen(true),
+    openAiQuestion: () => setAiQuestionOpen(true),
+    openWordInfo: () => setWordInfoOpen(true),
+    openPronunciation: () => setPronunciationOpen(true),
+  }
+
   const session = useMemo(() => {
     if (studyMode === "typing") {
       return { type: "typing" as const, cards: MOCK_TYPING_CARDS }
@@ -843,6 +916,7 @@ export default function LearnPage() {
     currentIndex,
     onRate: handleRate,
     playbackSpeed: settings.playbackSpeed,
+    ...sheetHandlers,
   }
 
   return (
@@ -869,6 +943,11 @@ export default function LearnPage() {
         {studyMode === "flip" && <FlashcardMode {...modeProps} />}
         {studyMode === "mcq" && <MultipleChoiceMode {...modeProps} />}
         {studyMode === "typing" && <SentenceTypingMode {...modeProps} typingCard={currentTypingCard} />}
+
+        <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
+        <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
+        <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
+        <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
       </div>
     </AuthRequired>
   )
