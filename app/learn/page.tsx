@@ -9,10 +9,17 @@ import { MOCK_CARDS } from "@/lib/api/client"
 import { FSRS_RATING } from "@/lib/types/api"
 import { useSettings } from "@/components/settings-provider"
 import { AuthRequired } from "@/components/auth-required"
-import { Volume2, X, Mic, Lightbulb, Repeat, Check, XIcon } from "lucide-react"
+import { useCourseStore } from "@/store/course-store"
+import { Volume2, X, Mic, Lightbulb, Repeat, Check, XIcon, HelpCircle, Eye } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Card = (typeof MOCK_CARDS)[number]
+
+interface TypingCard extends Card {
+  koSentence: string
+  enSentenceWithBlank: string
+  explanation: string
+}
 
 interface ModeProps {
   card: Card
@@ -20,6 +27,10 @@ interface ModeProps {
   currentIndex: number
   onRate: (rating: number) => void
   playbackSpeed: number
+}
+
+interface TypingModeProps extends ModeProps {
+  typingCard: TypingCard
 }
 
 function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
@@ -358,7 +369,198 @@ function MultipleChoiceMode({ card, cards, currentIndex, onRate }: ModeProps) {
   )
 }
 
-function TypingMode({ card, onRate }: ModeProps) {
+function SentenceTypingMode({ typingCard, onRate }: TypingModeProps) {
+  const [userInput, setUserInput] = useState("")
+  const [status, setStatus] = useState<"idle" | "correct" | "incorrect">("idle")
+  const [revealedCount, setRevealedCount] = useState(0)
+  const [usedHint, setUsedHint] = useState(false)
+  const [showAnswer, setShowAnswer] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const answer = typingCard.word
+
+  useEffect(() => {
+    setUserInput("")
+    setStatus("idle")
+    setRevealedCount(0)
+    setUsedHint(false)
+    setShowAnswer(false)
+    inputRef.current?.focus()
+  }, [typingCard])
+
+  const normalizedInput = userInput.trim().toLowerCase()
+  const normalizedAnswer = answer.trim().toLowerCase()
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!userInput.trim() || status !== "idle") return
+
+    if (normalizedInput === normalizedAnswer) {
+      setStatus("correct")
+    } else {
+      setStatus("incorrect")
+    }
+  }
+
+  const handleHint = () => {
+    if (revealedCount < answer.length) {
+      setRevealedCount((prev) => prev + 1)
+      setUsedHint(true)
+    }
+  }
+
+  const handleShowAnswer = () => {
+    setShowAnswer(true)
+    setStatus("incorrect")
+  }
+
+  // Build hint string: revealed chars + underscores for hidden
+  const hintDisplay = answer
+    .split("")
+    .map((char, i) => (i < revealedCount ? char : "_"))
+    .join("")
+
+  // Parse sentence to highlight the blank/answer
+  const renderSentence = () => {
+    const parts = typingCard.enSentenceWithBlank.split("____")
+    if (parts.length !== 2) {
+      return <span>{typingCard.enSentenceWithBlank}</span>
+    }
+
+    return (
+      <span className="text-xl leading-relaxed">
+        {parts[0]}
+        {showAnswer || status === "correct" ? (
+          <span
+            className={cn(
+              "font-bold border-b-2 px-1",
+              status === "correct" ? "text-green-600 border-green-500" : "text-indigo-600 border-indigo-500",
+            )}
+          >
+            {answer}
+          </span>
+        ) : (
+          <span className="inline-block min-w-[80px] border-b-2 border-indigo-300 bg-indigo-50 px-2 py-1 mx-1 font-mono">
+            {userInput || hintDisplay}
+          </span>
+        )}
+        {parts[1]}
+      </span>
+    )
+  }
+
+  return (
+    <>
+      <div className="flex-1 flex flex-col p-4 bg-sky-50">
+        {/* Korean sentence */}
+        <div className="bg-sky-100 rounded-2xl p-4 mb-4">
+          <p className="text-lg text-gray-800 leading-relaxed">
+            {typingCard.koSentence.split(typingCard.definition).map((part, i, arr) => (
+              <span key={i}>
+                {part}
+                {i < arr.length - 1 && <span className="text-indigo-600 font-bold">{typingCard.definition}</span>}
+              </span>
+            ))}
+          </p>
+        </div>
+
+        {/* Error message */}
+        {status === "incorrect" && !showAnswer && (
+          <div className="bg-red-100 text-red-700 rounded-xl p-3 mb-4 text-center font-medium">
+            정답을 확인하고, 다시 입력해 보세요.
+          </div>
+        )}
+
+        {/* English sentence with blank */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm mb-4">{renderSentence()}</div>
+
+        {/* Source info */}
+        <p className="text-xs text-gray-400 text-center mb-4">[어휘 출처] 능률 VOCA 어원편, DAY 17</p>
+
+        {/* Hidden input for typing */}
+        {status === "idle" && !showAnswer && (
+          <form onSubmit={handleSubmit} className="sr-only">
+            <input
+              ref={inputRef}
+              type="text"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              autoFocus
+            />
+          </form>
+        )}
+      </div>
+
+      {/* Bottom bar */}
+      <div className="bg-white p-4 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        {status === "idle" && !showAnswer ? (
+          <div className="space-y-4">
+            {/* Visible input */}
+            <input
+              type="text"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              placeholder="영단어를 입력하세요"
+              className="w-full p-4 rounded-xl border-2 border-gray-200 text-center text-xl font-medium focus:border-indigo-500 outline-none"
+              autoFocus
+            />
+
+            {/* Action buttons */}
+            <div className="flex gap-3">
+              {!usedHint ? (
+                <Button
+                  variant="outline"
+                  className="flex-1 py-4 text-indigo-600 border-indigo-200 bg-transparent"
+                  onClick={handleHint}
+                >
+                  <HelpCircle className="w-4 h-4 mr-2" />
+                  힌트 보기
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="flex-1 py-4 text-indigo-600 border-indigo-200 bg-transparent"
+                  onClick={handleShowAnswer}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  정답 보기
+                </Button>
+              )}
+              <Button
+                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700"
+                onClick={() => handleSubmit()}
+                disabled={!userInput.trim()}
+              >
+                <Check className="w-4 h-4 mr-2" />
+                확인
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {status === "correct" && (
+              <div className="bg-green-100 text-green-700 rounded-xl p-3 text-center font-medium flex items-center justify-center gap-2">
+                <Check className="w-5 h-5" />
+                정답입니다!
+              </div>
+            )}
+            {showAnswer && (
+              <div className="bg-gray-100 rounded-xl p-4 text-center">
+                <p className="text-sm text-gray-500 mb-1">정답</p>
+                <p className="text-2xl font-bold text-indigo-600">{answer}</p>
+                {typingCard.explanation && <p className="text-sm text-gray-600 mt-2">{typingCard.explanation}</p>}
+              </div>
+            )}
+            <RatingButtons onRate={onRate} />
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+function LegacyTypingMode({ card, onRate }: ModeProps) {
   const [userInput, setUserInput] = useState("")
   const [isRevealed, setIsRevealed] = useState(false)
 
@@ -451,23 +653,72 @@ function TypingMode({ card, onRate }: ModeProps) {
   )
 }
 
+const MOCK_TYPING_CARDS: TypingCard[] = [
+  {
+    id: "1",
+    word: "concentrate",
+    pronunciation: "/ˈkɒnsəntreɪt/",
+    definition: "집중",
+    koSentence: "네가 쉴 새 없이 질문해대니까 내가 집중을 할 수가 없잖아.",
+    enSentenceWithBlank: "It's hard to ____ when you keep asking me all these questions.",
+    explanation: "concentrate = 집중하다",
+  },
+  {
+    id: "2",
+    word: "suspect",
+    pronunciation: "/səˈspekt/",
+    definition: "용의자",
+    koSentence: "경찰이 범죄 현장 가까이에서 주요 용의자를 체포했습니다.",
+    enSentenceWithBlank: "Police arrested the main ____ near the scene of the crime.",
+    explanation: "suspect = 용의자, 혐의자",
+  },
+  {
+    id: "3",
+    word: "innovation",
+    pronunciation: "/ˌɪnəˈveɪʃn/",
+    definition: "혁신",
+    koSentence: "그 회사는 AI 분야의 혁신으로 알려져 있다.",
+    enSentenceWithBlank: "The company is known for its ____ in AI.",
+    explanation: "innovation = 혁신",
+  },
+  {
+    id: "4",
+    word: "resilience",
+    pronunciation: "/rɪˈzɪliəns/",
+    definition: "회복력, 탄력",
+    koSentence: "이 연구는 아이들의 정신적 회복력에 관한 것이다.",
+    enSentenceWithBlank: "This study is about children's mental ____.",
+    explanation: "resilience = 회복력, 탄성",
+  },
+  {
+    id: "5",
+    word: "sustainable",
+    pronunciation: "/səˈsteɪnəbl/",
+    definition: "지속 가능한",
+    koSentence: "우리는 지속 가능한 에너지원을 찾아야 합니다.",
+    enSentenceWithBlank: "We need to find ____ energy sources.",
+    explanation: "sustainable = 지속 가능한",
+  },
+]
+
 export default function LearnPage() {
   const router = useRouter()
   const { settings } = useSettings()
+  const { studyMode } = useCourseStore()
 
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [cards, setCards] = useState(MOCK_CARDS)
-  const [completedCount, setCompletedCount] = useState(0)
+  const [cards] = useState(MOCK_CARDS)
+  const [typingCards] = useState(MOCK_TYPING_CARDS)
 
   const currentCard = cards[currentIndex]
+  const currentTypingCard = typingCards[currentIndex % typingCards.length]
   const progress = (currentIndex / cards.length) * 100
 
-  const handleRate = (rating: number) => {
+  const handleRate = () => {
     if (currentIndex < cards.length - 1) {
       setTimeout(() => {
         setCurrentIndex((prev) => prev + 1)
       }, 300)
-      setCompletedCount((prev) => prev + 1)
     } else {
       router.push("/dashboard")
     }
@@ -502,9 +753,9 @@ export default function LearnPage() {
           <div className="w-10" />
         </div>
 
-        {settings.quizMode === "flashcard" && <FlashcardMode {...modeProps} />}
-        {settings.quizMode === "multiple-choice" && <MultipleChoiceMode {...modeProps} />}
-        {settings.quizMode === "typing" && <TypingMode {...modeProps} />}
+        {studyMode === "flip" && <FlashcardMode {...modeProps} />}
+        {studyMode === "mcq" && <MultipleChoiceMode {...modeProps} />}
+        {studyMode === "typing" && <SentenceTypingMode {...modeProps} typingCard={currentTypingCard} />}
       </div>
     </AuthRequired>
   )

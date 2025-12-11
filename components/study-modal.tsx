@@ -3,19 +3,25 @@
 import { useRouter } from "next/navigation"
 import { X, BookOpen, RefreshCw, ChevronDown, ChevronUp, Star, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useCourseStore } from "@/store/course-store"
+import { useCourseStore, type StudyMode } from "@/store/course-store"
 import { buildCourseSummary } from "@/lib/course-summary"
 import { MOCK_CATEGORIES } from "@/lib/mock-decks"
 import { deriveCounts } from "@/lib/review-ratio"
+import { cn } from "@/lib/utils"
 
 export type ModalStep = "today" | "extra"
+
+const STUDY_MODE_OPTIONS: { value: StudyMode; label: string }[] = [
+  { value: "typing", label: "타이핑" },
+  { value: "mcq", label: "객관식" },
+  { value: "flip", label: "단어 플립" },
+]
 
 interface StudyModalProps {
   isOpen: boolean
   onClose: () => void
   step: ModalStep
   onStepChange: (step: ModalStep) => void
-  // Stats from API (mock for now)
   todayGoal?: number
   todayProgress?: number
   todayNewCount?: number
@@ -42,6 +48,8 @@ export function StudyModal({
     setTargetWordCount,
     reviewRatioMode,
     customReviewRatioPercent,
+    studyMode,
+    setStudyMode,
   } = useCourseStore()
 
   if (!isOpen) return null
@@ -92,6 +100,23 @@ export function StudyModal({
     onClose()
   }
 
+  const StudyModeSelector = () => (
+    <div className="flex rounded-full bg-gray-100 p-1 mb-6">
+      {STUDY_MODE_OPTIONS.map((option) => (
+        <button
+          key={option.value}
+          onClick={() => setStudyMode(option.value)}
+          className={cn(
+            "flex-1 py-2 px-3 text-sm font-medium rounded-full transition-all",
+            studyMode === option.value ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       {/* Backdrop */}
@@ -106,6 +131,9 @@ export function StudyModal({
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
+
+        {/* Study Mode Selector */}
+        <StudyModeSelector />
 
         {/* Course Type */}
         <div className="flex items-center justify-between mb-6">

@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware"
 
 export type CourseType = "integrated" | "custom"
 export type ReviewScope = "selected_decks" | "all_learned"
+export type StudyMode = "typing" | "mcq" | "flip"
 
 interface CourseState {
   // Core course type
@@ -16,6 +17,8 @@ interface CourseState {
   // Review ratio settings for Issue 4
   reviewRatioMode: "normal" | "custom"
   customReviewRatioPercent: number
+  // Study mode for Issue 8
+  studyMode: StudyMode
 
   // Actions
   setCourseType: (type: CourseType) => void
@@ -25,6 +28,7 @@ interface CourseState {
   setReviewRatioMode: (mode: "normal" | "custom") => void
   setCustomReviewRatioPercent: (percent: number) => void
   resetCustomSelection: () => void
+  setStudyMode: (mode: StudyMode) => void
 }
 
 export const useCourseStore = create<CourseState>()(
@@ -37,6 +41,7 @@ export const useCourseStore = create<CourseState>()(
       targetWordCount: 20,
       reviewRatioMode: "normal",
       customReviewRatioPercent: 70,
+      studyMode: "typing",
 
       // Actions
       setCourseType: (type) => set({ courseType: type }),
@@ -50,6 +55,7 @@ export const useCourseStore = create<CourseState>()(
           customSelectedDeckIds: [],
           reviewScope: "selected_decks",
         }),
+      setStudyMode: (mode) => set({ studyMode: mode }),
     }),
     {
       name: "loops:course",
