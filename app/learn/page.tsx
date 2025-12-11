@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { MOCK_CARDS } from "@/lib/api/client"
 import { FSRS_RATING } from "@/lib/types/api"
 import { useSettings } from "@/components/settings-provider"
-import { AuthRequired } from "@/components/auth-required"
 import { useCourseStore } from "@/store/course-store"
 import { Volume2, X, Mic, Lightbulb, Repeat, Check, XIcon, HelpCircle, Eye } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -15,6 +14,16 @@ import { ActionBar } from "@/components/learn/action-bar"
 import { WrongNotesSheet } from "@/components/learn/sheets/wrong-notes-sheet"
 import { PlaceholderSheet } from "@/components/learn/sheets/placeholder-sheet"
 import { saveWrongNote } from "@/lib/wrong-notes"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { AuthRequired } from "@/components/auth-required"
 
 type Card = (typeof MOCK_CARDS)[number]
 
@@ -906,6 +915,8 @@ export default function LearnPage() {
   const [wordInfoOpen, setWordInfoOpen] = useState(false)
   const [pronunciationOpen, setPronunciationOpen] = useState(false)
 
+  const [exitDialogOpen, setExitDialogOpen] = useState(false)
+
   const sheetHandlers: SheetHandlers = {
     openWrongNotes: () => setWrongNotesOpen(true),
     openAiQuestion: () => setAiQuestionOpen(true),
@@ -922,6 +933,7 @@ export default function LearnPage() {
 
   const total = session.cards.length
   const progress = (currentIndex / total) * 100
+  const remainingCount = Math.max(total - currentIndex - 1, 0)
 
   const currentCard = session.type === "standard" ? session.cards[currentIndex] : MOCK_CARDS[0]
   const currentTypingCard = session.type === "typing" ? session.cards[currentIndex] : MOCK_TYPING_CARDS[0]
@@ -938,6 +950,10 @@ export default function LearnPage() {
     }
   }
 
+  const handleExitClick = () => {
+    setExitDialogOpen(true)
+  }
+
   const modeProps: ModeProps = {
     card: currentCard,
     cards: session.type === "standard" ? session.cards : MOCK_CARDS,
@@ -951,7 +967,7 @@ export default function LearnPage() {
     <AuthRequired>
       <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
         <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm z-10 shrink-0">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+          <Button variant="ghost" size="icon" onClick={handleExitClick}>
             <X className="w-5 h-5 text-gray-500" />
           </Button>
           <div className="flex-1 mx-4">
@@ -976,6 +992,40 @@ export default function LearnPage() {
         <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
         <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
         <PlaceholderSheet open={pronunciationOpen} onOpenChange={setPronunciationOpen} title="발음 진단" />
+
+        <AlertDialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
+          <AlertDialogContent className="max-w-sm rounded-2xl">
+            <AlertDialogHeader className="text-center">
+              <AlertDialogTitle className="text-lg font-bold">이대로 가시겠어요?</AlertDialogTitle>
+              <AlertDialogDescription className="mt-2 space-y-1 text-sm text-gray-600">
+                <div>
+                  <span className="font-semibold text-indigo-600">{remainingCount}문제</span>를 풀어야
+                </div>
+                <div>연속 학습을 달성할 수 있어요!</div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex flex-row gap-2 sm:flex-row">
+              {/* 나가기 - exit to dashboard */}
+              <AlertDialogAction
+                className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300"
+                onClick={() => {
+                  setExitDialogOpen(false)
+                  setCurrentIndex(0)
+                  router.push("/dashboard")
+                }}
+              >
+                나가기
+              </AlertDialogAction>
+              {/* 이어서 하기 - just close modal */}
+              <AlertDialogAction
+                className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white"
+                onClick={() => setExitDialogOpen(false)}
+              >
+                이어서 하기
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AuthRequired>
   )
