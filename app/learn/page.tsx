@@ -935,6 +935,11 @@ export default function LearnPage() {
   const progress = (currentIndex / total) * 100
   const remainingCount = Math.max(total - currentIndex - 1, 0)
 
+  const remainingLabel =
+    remainingCount > 0
+      ? `${remainingCount}문제를 풀어야 연속 학습을 달성할 수 있어요!`
+      : "지금 나가도 오늘 목표는 이미 달성했어요!"
+
   const currentCard = session.type === "standard" ? session.cards[currentIndex] : MOCK_CARDS[0]
   const currentTypingCard = session.type === "typing" ? session.cards[currentIndex] : MOCK_TYPING_CARDS[0]
 
@@ -950,8 +955,10 @@ export default function LearnPage() {
     }
   }
 
-  const handleExitClick = () => {
-    setExitDialogOpen(true)
+  const handleExit = () => {
+    setExitDialogOpen(false)
+    setCurrentIndex(0)
+    router.push("/dashboard")
   }
 
   const modeProps: ModeProps = {
@@ -967,7 +974,7 @@ export default function LearnPage() {
     <AuthRequired>
       <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
         <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm z-10 shrink-0">
-          <Button variant="ghost" size="icon" onClick={handleExitClick}>
+          <Button variant="ghost" size="icon" onClick={() => setExitDialogOpen(true)}>
             <X className="w-5 h-5 text-gray-500" />
           </Button>
           <div className="flex-1 mx-4">
@@ -997,23 +1004,11 @@ export default function LearnPage() {
           <AlertDialogContent className="max-w-sm rounded-2xl">
             <AlertDialogHeader className="text-center">
               <AlertDialogTitle className="text-lg font-bold">이대로 가시겠어요?</AlertDialogTitle>
-              <AlertDialogDescription className="mt-2 space-y-1 text-sm text-gray-600">
-                <div>
-                  <span className="font-semibold text-indigo-600">{remainingCount}문제</span>를 풀어야
-                </div>
-                <div>연속 학습을 달성할 수 있어요!</div>
-              </AlertDialogDescription>
+              <AlertDialogDescription className="mt-2 text-sm text-gray-600">{remainingLabel}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex flex-row gap-2 sm:flex-row">
               {/* 나가기 - exit to dashboard */}
-              <AlertDialogAction
-                className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300"
-                onClick={() => {
-                  setExitDialogOpen(false)
-                  setCurrentIndex(0)
-                  router.push("/dashboard")
-                }}
-              >
+              <AlertDialogAction className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300" onClick={handleExit}>
                 나가기
               </AlertDialogAction>
               {/* 이어서 하기 - just close modal */}
