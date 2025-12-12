@@ -30,6 +30,7 @@ import {
   completeSession,
   type StudyCard,
   type SessionSummary,
+  type SessionCompleteResponse,
   type QuizType,
 } from "@/lib/api/study"
 
@@ -133,24 +134,33 @@ function FlashcardMode({
   const [showPronunciationAnalysis, setShowPronunciationAnalysis] = useState(false)
   const prevIsFlipped = useRef(false)
 
-  // Sheet states
-  // const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
-  // const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
-  // const [wordInfoOpen, setWordInfoOpen] = useState(false)
-  // const [pronunciationOpen, setPronunciationOpen] = useState(false)
+  const questionText = typeof card.question === "string" ? card.question : card.question.sentence
+
+  let answerText: string
+  if (card.quiz_type === "word_to_meaning") {
+    answerText = card.korean_meaning
+  } else if (card.quiz_type === "meaning_to_word") {
+    answerText = card.english_word
+  } else if (card.quiz_type === "cloze" && typeof card.question === "object") {
+    answerText = card.question.answer
+  } else if (card.quiz_type === "listening") {
+    answerText = card.english_word
+  } else {
+    answerText = card.korean_meaning
+  }
 
   const mockExamples = [
     {
-      sentence: "The company is known for its innovation in AI.",
-      translation: "그 회사는 AI 분야의 혁신으로 알려져 있다.",
+      sentence: `The word "${card.english_word}" means ${card.korean_meaning}.`,
+      translation: `이 단어는 ${card.korean_meaning}을 의미합니다.`,
     },
     {
-      sentence: "Digital innovation is transforming the healthcare industry.",
-      translation: "디지털 혁신이 의료 산업을 변화시키고 있다.",
+      sentence: `${card.english_word}: commonly used in academic contexts.`,
+      translation: `${card.english_word}: 학문적 맥락에서 흔히 사용됩니다.`,
     },
     {
-      sentence: "We need constant innovation to stay competitive.",
-      translation: "경쟁력을 유지하려면 지속적인 혁신이 필요하다.",
+      sentence: `Example: This demonstrates the meaning of ${card.english_word}.`,
+      translation: `예시: ${card.english_word}의 의미를 보여줍니다.`,
     },
   ]
 
@@ -173,8 +183,12 @@ function FlashcardMode({
   }
 
   const playAudioWithSettings = () => {
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(card.word)
+    if (card.audio_url) {
+      const audio = new Audio(card.audio_url)
+      audio.playbackRate = playbackSpeed
+      audio.play()
+    } else if ("speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(card.english_word)
       utterance.lang = "en-US"
       utterance.rate = playbackSpeed
       window.speechSynthesis.speak(utterance)
@@ -225,9 +239,9 @@ function FlashcardMode({
           )}
           onClick={handleFlip}
         >
-          {/* Front of card */}
+          {/* Front of card - show question */}
           <div className="absolute inset-0 bg-white rounded-3xl shadow-xl flex flex-col items-center justify-center p-8 backface-hidden border border-gray-100">
-            <span className="text-4xl font-bold text-gray-900 mb-8">{card.word}</span>
+            <span className="text-4xl font-bold text-gray-900 mb-8">{questionText}</span>
             {showTutorial && (
               <div className="absolute bottom-8 animate-bounce text-gray-400 text-sm flex flex-col items-center">
                 <span>👆</span>
@@ -236,12 +250,12 @@ function FlashcardMode({
             )}
           </div>
 
-          {/* Back of card */}
+          {/* Back of card - show answer + details */}
           <div className="absolute inset-0 bg-white rounded-3xl shadow-xl flex flex-col p-6 backface-hidden rotate-y-180 border border-gray-100 overflow-y-auto">
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-center gap-2">
-                  <h2 className="text-3xl font-bold text-gray-900">{card.word}</h2>
+                  <h2 className="text-3xl font-bold text-gray-900">{card.english_word}</h2>
                   <button
                     onClick={playAudio}
                     className="p-2 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
@@ -249,7 +263,7 @@ function FlashcardMode({
                     <Volume2 className="w-5 h-5" />
                   </button>
                 </div>
-                <p className="text-gray-500 font-mono text-sm">{card.pronunciation}</p>
+                <p className="text-gray-500 font-mono text-sm">{card.pronunciation_ipa ?? ""}</p>
               </div>
               <div className="flex gap-1 text-xs">
                 <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-600 font-medium">
@@ -258,7 +272,7 @@ function FlashcardMode({
               </div>
               <div className="w-12 h-1 bg-gray-100 rounded-full" />
               <div className="space-y-1">
-                <p className="text-2xl font-bold text-indigo-600">{card.definition}</p>
+                <p className="text-2xl font-bold text-indigo-600">{answerText}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-xl w-full text-left space-y-3">
                 <div className="flex items-center justify-between">
@@ -294,10 +308,7 @@ function FlashcardMode({
                   <div className="space-y-1">
                     <div className="text-xs text-indigo-700">
                       <Lightbulb className="w-3 h-3 inline mr-1" />
-                      &apos;v&apos; 발음: 아랫입술을 윗니에 대고 소리내세요
-                    </div>
-                    <div className="text-xs text-indigo-700">
-                      강세: in-no-<strong>VA</strong>-tion (3음절 강조)
+                      발음 팁
                     </div>
                   </div>
                   <button
@@ -316,7 +327,6 @@ function FlashcardMode({
         </div>
       </div>
 
-      {/* ActionBar shown after flip - use props handlers */}
       {isFlipped && (
         <ActionBar
           onOtherExample={handleOtherExample}
@@ -328,7 +338,6 @@ function FlashcardMode({
         />
       )}
 
-      {/* RatingButtons shown after card is flipped */}
       {isFlipped && (
         <div className="shrink-0 p-4 pb-8 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
           <RatingButtons onRate={onRate} />
@@ -340,7 +349,6 @@ function FlashcardMode({
 
 function MultipleChoiceMode({
   card,
-  cards,
   currentIndex,
   onRate,
   openWrongNotes,
@@ -353,12 +361,6 @@ function MultipleChoiceMode({
   const [wasIncorrectSaved, setWasIncorrectSaved] = useState(false)
   const [exampleIndex, setExampleIndex] = useState(0)
 
-  // Sheet states
-  // const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
-  // const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
-  // const [wordInfoOpen, setWordInfoOpen] = useState(false)
-  // const [pronunciationOpen, setPronunciationOpen] = useState(false)
-
   useEffect(() => {
     setSelectedChoice(null)
     setIsRevealed(false)
@@ -367,25 +369,17 @@ function MultipleChoiceMode({
   }, [card, currentIndex])
 
   const choices = useMemo(() => {
-    const correctAnswer = card.definition
-    const otherDefinitions = cards
-      .filter((_, i) => i !== currentIndex)
-      .map((c) => c.definition)
-      .filter((def) => def !== correctAnswer)
-      .filter((def, idx, arr) => arr.indexOf(def) === idx)
-
-    const shuffledIncorrect = [...otherDefinitions].sort(() => Math.random() - 0.5)
-    const incorrectAnswers = shuffledIncorrect.slice(0, Math.min(3, shuffledIncorrect.length))
-
-    const allChoices = [correctAnswer, ...incorrectAnswers]
-    return allChoices.sort(() => Math.random() - 0.5)
-  }, [card, cards, currentIndex])
+    if (!card.options || card.options.length === 0) {
+      return []
+    }
+    return [...card.options].sort(() => Math.random() - 0.5)
+  }, [card])
 
   const mockExamples = useMemo(
     () => [
-      { sentence: `The word "${card.word}" means ${card.definition}.` },
-      { sentence: `${card.word}: commonly used in academic contexts.` },
-      { sentence: `Example: This demonstrates the meaning of ${card.word}.` },
+      { sentence: `The word "${card.english_word}" means ${card.korean_meaning}.` },
+      { sentence: `${card.english_word}: commonly used in academic contexts.` },
+      { sentence: `Example: This demonstrates the meaning of ${card.english_word}.` },
     ],
     [card],
   )
@@ -395,13 +389,12 @@ function MultipleChoiceMode({
 
   const handleReveal = () => {
     setIsRevealed(true)
-    // Save to wrong notes on incorrect answer
-    if (selectedChoice && selectedChoice !== card.definition && !wasIncorrectSaved) {
+    if (selectedChoice && selectedChoice !== card.korean_meaning && !wasIncorrectSaved) {
       setWasIncorrectSaved(true)
       saveWrongNote({
-        word: card.word,
+        word: card.english_word,
         userAnswer: selectedChoice,
-        correctAnswer: card.definition,
+        correctAnswer: card.korean_meaning,
         koSentence: "",
         enSentenceWithBlank: "",
       })
@@ -414,8 +407,23 @@ function MultipleChoiceMode({
     }
   }
 
-  const isCorrect = selectedChoice === card.definition
+  const isCorrect = selectedChoice === card.korean_meaning
   const isAnswered = isRevealed
+
+  const questionText = typeof card.question === "string" ? card.question : card.question.sentence
+
+  if (choices.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="text-6xl">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-900">선택지를 불러올 수 없습니다</h2>
+          <p className="text-gray-600">이 문제에 선택지가 없습니다. flip 모드로 학습해주세요.</p>
+          <Button onClick={() => onRate(FSRS_RATING.GOOD)}>다음 카드로</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -423,13 +431,13 @@ function MultipleChoiceMode({
         <div className="w-full max-w-sm space-y-6">
           <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
             <span className="text-xs text-gray-400 mb-2 block">다음 단어의 뜻은?</span>
-            <span className="text-4xl font-bold text-gray-900">{card.word}</span>
+            <span className="text-4xl font-bold text-gray-900">{questionText}</span>
           </div>
 
           <div className="space-y-3">
             {choices.map((choice, idx) => {
               const isSelected = selectedChoice === choice
-              const isCorrectChoice = choice === card.definition
+              const isCorrectChoice = choice === card.korean_meaning
 
               let buttonClass = "bg-white border-gray-200 text-gray-700 hover:border-indigo-300"
               if (isRevealed) {
@@ -469,7 +477,6 @@ function MultipleChoiceMode({
         </div>
       </div>
 
-      {/* ActionBar shown after answer - use props handlers */}
       {isAnswered && (
         <ActionBar
           onOtherExample={handleOtherExample}
@@ -494,7 +501,7 @@ function MultipleChoiceMode({
                 isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700",
               )}
             >
-              {isCorrect ? "정답입니다!" : `오답! 정답: ${card.definition}`}
+              {isCorrect ? "정답입니다!" : `오답! 정답: ${card.korean_meaning}`}
             </div>
             <RatingButtons onRate={onRate} />
           </div>
@@ -831,7 +838,10 @@ export default function LearnPage() {
   const [correctCount, setCorrectCount] = useState(0)
   const [isLoadingSession, setIsLoadingSession] = useState(true)
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null)
+  const [sessionComplete, setSessionComplete] = useState<SessionCompleteResponse | null>(null)
   const [showSummary, setShowSummary] = useState(false)
+
+  const [pendingUserAnswer, setPendingUserAnswer] = useState<string | null>(null)
 
   const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
   const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
@@ -840,10 +850,14 @@ export default function LearnPage() {
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
 
-  const effectiveStudyMode = studyMode === "typing" ? "flip" : studyMode
-  const quizType: QuizType = effectiveStudyMode === "mcq" ? "word_to_meaning" : "word_to_meaning"
+  const quizType: QuizType = studyMode === "mcq" ? "word_to_meaning" : "word_to_meaning"
 
   useEffect(() => {
+    if (studyMode === "typing") {
+      setIsLoadingSession(false)
+      return
+    }
+
     const initSession = async () => {
       try {
         const urlSessionId = searchParams.get("sessionId")
@@ -875,7 +889,7 @@ export default function LearnPage() {
     }
 
     initSession()
-  }, [searchParams, quizType])
+  }, [searchParams, quizType, studyMode])
 
   const sheetHandlers: SheetHandlers = {
     openWrongNotes: () => setWrongNotesOpen(true),
@@ -900,8 +914,10 @@ export default function LearnPage() {
       let answer: string
       if (rating === FSRS_RATING.AGAIN) {
         answer = "__WRONG__"
+      } else if (pendingUserAnswer) {
+        answer = pendingUserAnswer
+        setPendingUserAnswer(null) // Reset after use
       } else {
-        // Determine correct answer based on quiz_type
         if (currentCard.quiz_type === "word_to_meaning") {
           answer = currentCard.korean_meaning
         } else if (currentCard.quiz_type === "meaning_to_word") {
@@ -909,7 +925,6 @@ export default function LearnPage() {
         } else if (currentCard.quiz_type === "cloze" && typeof currentCard.question === "object") {
           answer = currentCard.question.answer
         } else {
-          // Default fallback
           answer = currentCard.english_word
         }
       }
@@ -936,8 +951,9 @@ export default function LearnPage() {
       const cardResponse = await getNextCard(sessionId, quizType)
 
       if (!cardResponse.card || cardResponse.cards_remaining === 0) {
-        const summary = await completeSession(sessionId)
-        setSessionSummary(summary.session_summary)
+        const complete = await completeSession(sessionId)
+        setSessionComplete(complete)
+        setSessionSummary(complete.session_summary)
         setShowSummary(true)
       } else {
         setTimeout(() => {
@@ -956,6 +972,25 @@ export default function LearnPage() {
     router.push("/dashboard")
   }
 
+  if (studyMode === "typing") {
+    return (
+      <AuthRequired>
+        <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-purple-50">
+          <div className="flex items-center justify-center flex-1 p-6">
+            <div className="text-center space-y-4 max-w-md">
+              <div className="text-6xl">🚧</div>
+              <h2 className="text-2xl font-bold text-gray-900">타이핑 모드 준비 중</h2>
+              <p className="text-gray-600">타이핑 모드는 현재 개발 중입니다. 잠시만 기다려주세요!</p>
+              <Button onClick={() => router.push("/dashboard")} className="mt-4">
+                홈으로 돌아가기
+              </Button>
+            </div>
+          </div>
+        </div>
+      </AuthRequired>
+    )
+  }
+
   if (isLoadingSession) {
     return (
       <AuthRequired>
@@ -971,6 +1006,9 @@ export default function LearnPage() {
   }
 
   if (showSummary && sessionSummary) {
+    const accuracyPct =
+      sessionSummary.accuracy <= 1 ? Math.round(sessionSummary.accuracy * 100) : Math.round(sessionSummary.accuracy)
+
     return (
       <AuthRequired>
         <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-purple-50">
@@ -996,7 +1034,7 @@ export default function LearnPage() {
                 </div>
                 <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
                   <span className="text-gray-600">정답률</span>
-                  <span className="font-semibold text-gray-900">{Math.round(sessionSummary.accuracy)}%</span>
+                  <span className="font-semibold text-gray-900">{accuracyPct}%</span>
                 </div>
                 <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
                   <span className="text-gray-600">학습 시간</span>
@@ -1004,6 +1042,12 @@ export default function LearnPage() {
                     {Math.floor(sessionSummary.duration_seconds / 60)}분
                   </span>
                 </div>
+                {sessionComplete?.xp && (
+                  <div className="flex justify-between p-4 bg-indigo-50 rounded-lg">
+                    <span className="text-indigo-900 font-medium">획득 경험치</span>
+                    <span className="font-bold text-indigo-600">{sessionComplete.xp.total_xp} XP</span>
+                  </div>
+                )}
               </div>
 
               <Button onClick={() => router.push("/dashboard")} className="w-full h-12 text-lg">
@@ -1063,21 +1107,8 @@ export default function LearnPage() {
           <div className="w-10" />
         </div>
 
-        {effectiveStudyMode === "flip" && currentCard && <FlashcardMode {...modeProps} />}
-        {effectiveStudyMode === "mcq" && currentCard && <MultipleChoiceMode {...modeProps} />}
-
-        {studyMode === "typing" && (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <div className="text-center space-y-4 max-w-md">
-              <div className="text-6xl">🚧</div>
-              <h2 className="text-2xl font-bold text-gray-900">타이핑 모드 준비 중</h2>
-              <p className="text-gray-600">타이핑 모드는 현재 개발 중입니다. 잠시만 기다려주세요!</p>
-              <Button onClick={() => router.push("/dashboard")} className="mt-4">
-                홈으로 돌아가기
-              </Button>
-            </div>
-          </div>
-        )}
+        {studyMode === "flip" && currentCard && <FlashcardMode {...modeProps} />}
+        {studyMode === "mcq" && currentCard && <MultipleChoiceMode {...modeProps} />}
 
         <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
         <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
@@ -1100,10 +1131,7 @@ export default function LearnPage() {
               <AlertDialogAction className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300" onClick={handleExit}>
                 나가기
               </AlertDialogAction>
-              <AlertDialogAction
-                className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white"
-                onClick={() => setExitDialogOpen(false)}
-              >
+              <AlertDialogAction className="flex-1" onClick={() => setExitDialogOpen(false)}>
                 이어서 하기
               </AlertDialogAction>
             </AlertDialogFooter>
