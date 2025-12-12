@@ -49,31 +49,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleDevSkip = () => {
-    console.log("[v0] handleDevSkip called!")
-
-    const authData = {
-      access_token: "dev-skip-token",
-      refresh_token: "dev-skip-refresh",
-      user: {
-        id: "dev-user",
-        email: "dev@example.com",
-        username: "준호",
-      },
-    }
-
-    console.log("[v0] About to save to localStorage:", authData)
-    localStorage.setItem("loops:auth", JSON.stringify(authData))
-
-    // 저장 확인
-    const saved = localStorage.getItem("loops:auth")
-    console.log("[v0] Verified saved data:", saved)
-
-    // 저장 후 리다이렉트
-    console.log("[v0] Redirecting to dashboard...")
-    window.location.href = "/dashboard"
-  }
-
   return (
     <div className="min-h-screen bg-white p-6 flex flex-col">
       <Link href="/" className="inline-flex items-center text-gray-500 mb-8">
@@ -160,15 +135,6 @@ export default function LoginPage() {
             />
           </svg>
           Google로 계속하기
-        </Button>
-
-        <Button
-          variant="ghost"
-          className="w-full py-6 text-gray-400 hover:text-gray-600"
-          type="button"
-          onClick={handleDevSkip}
-        >
-          [DEV] Skip
         </Button>
       </div>
     </div>

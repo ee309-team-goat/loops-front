@@ -25,7 +25,6 @@ interface AuthContextValue {
   register: (email: string, username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   getAccessToken: () => string | undefined
-  devSkip: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -123,21 +122,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return accessToken
   }, [accessToken])
 
-  const devSkip = useCallback(() => {
-    console.log("[v0] devSkip called - setting fake auth state and saving to storage")
-    const fakeAuth: AuthPayload = {
-      access_token: "dev-skip-token",
-      refresh_token: "dev-skip-refresh-token",
-      user: {
-        id: "dev-user",
-        email: "dev@example.com",
-        username: "DevUser",
-      },
-    }
-    saveAuth(fakeAuth)
-    // State will be updated via AUTH_CHANGED_EVENT listener
-  }, [])
-
   const value: AuthContextValue = {
     user,
     isAuthed: !!accessToken,
@@ -146,7 +130,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     register,
     logout,
     getAccessToken: getAccessTokenFn,
-    devSkip,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
