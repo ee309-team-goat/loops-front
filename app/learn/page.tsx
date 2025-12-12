@@ -2,10 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { MOCK_CARDS } from "@/lib/api/client"
-import { FSRS_RATING } from "@/lib/types/api"
 import { useSettings } from "@/components/settings-provider"
 import { useCourseStore } from "@/store/course-store"
 import { Volume2, X, Mic, Lightbulb, Repeat, Check, XIcon, HelpCircle, Eye } from "lucide-react"
@@ -25,8 +23,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { AuthRequired } from "@/components/auth-required"
+import {
+  startSession,
+  getNextCard,
+  submitAnswer,
+  completeSession,
+  type StudyCard,
+  type SessionSummary,
+} from "@/lib/api/study"
 
-type Card = (typeof MOCK_CARDS)[number]
+const FSRS_RATING = {
+  AGAIN: 1,
+  HARD: 2,
+  GOOD: 3,
+  EASY: 4,
+}
+
+type Card = StudyCard
 
 interface TypingCard extends Card {
   koSentence: string
@@ -802,114 +815,22 @@ function SentenceTypingMode({
   )
 }
 
-const MOCK_TYPING_CARDS: TypingCard[] = [
-  {
-    id: "1",
-    word: "concentrate",
-    pronunciation: "/ˈkɒnsəntreɪt/",
-    definition: "집중",
-    koSentence: "네가 쉴 새 없이 질문해대니까 내가 집중을 할 수가 없잖아.",
-    enSentenceWithBlank: "It's hard to ____ when you keep asking me all these questions.",
-    explanation: "concentrate = 집중하다",
-    exampleCandidates: [
-      {
-        koSentence: "네가 쉴 새 없이 질문해대니까 내가 집중을 할 수가 없잖아.",
-        enSentenceWithBlank: "It's hard to ____ when you keep asking me all these questions.",
-      },
-      {
-        koSentence: "시끄러운 환경에서는 집중하기 어렵다.",
-        enSentenceWithBlank: "It is difficult to ____ in a noisy environment.",
-      },
-      {
-        koSentence: "그녀는 공부에 집중하려고 노력했다.",
-        enSentenceWithBlank: "She tried to ____ on her studies.",
-      },
-    ],
-  },
-  {
-    id: "2",
-    word: "suspect",
-    pronunciation: "/səˈspekt/",
-    definition: "용의자",
-    koSentence: "경찰이 범죄 현장 가까이에서 주요 용의자를 체포했습니다.",
-    enSentenceWithBlank: "Police arrested the main ____ near the scene of the crime.",
-    explanation: "suspect = 용의자, 혐의자",
-    exampleCandidates: [
-      {
-        koSentence: "경찰이 범죄 현장 가까이에서 주요 용의자를 체포했습니다.",
-        enSentenceWithBlank: "Police arrested the main ____ near the scene of the crime.",
-      },
-      {
-        koSentence: "용의자는 범행을 부인하고 있다.",
-        enSentenceWithBlank: "The ____ is denying the crime.",
-      },
-    ],
-  },
-  {
-    id: "3",
-    word: "innovation",
-    pronunciation: "/ˌɪnəˈveɪʃn/",
-    definition: "혁신",
-    koSentence: "그 회사는 AI 분야의 혁신으로 알려져 있다.",
-    enSentenceWithBlank: "The company is known for its ____ in AI.",
-    explanation: "innovation = 혁신",
-    exampleCandidates: [
-      {
-        koSentence: "그 회사는 AI 분야의 혁신으로 알려져 있다.",
-        enSentenceWithBlank: "The company is known for its ____ in AI.",
-      },
-      {
-        koSentence: "기술 혁신이 우리 삶을 바꾸고 있다.",
-        enSentenceWithBlank: "Technological ____ is changing our lives.",
-      },
-    ],
-  },
-  {
-    id: "4",
-    word: "resilience",
-    pronunciation: "/rɪˈzɪliəns/",
-    definition: "회복력, 탄력",
-    koSentence: "이 연구는 아이들의 정신적 회복력에 관한 것이다.",
-    enSentenceWithBlank: "This study is about children's mental ____.",
-    explanation: "resilience = 회복력, 탄성",
-    exampleCandidates: [
-      {
-        koSentence: "이 연구는 아이들의 정신적 회복력에 관한 것이다.",
-        enSentenceWithBlank: "This study is about children's mental ____.",
-      },
-    ],
-  },
-  {
-    id: "5",
-    word: "sustainable",
-    pronunciation: "/səˈsteɪnəbl/",
-    definition: "지속 가능한",
-    koSentence: "우리는 지속 가능한 에너지원을 찾아야 합니다.",
-    enSentenceWithBlank: "We need to find ____ energy sources.",
-    explanation: "sustainable = 지속 가능한",
-    exampleCandidates: [
-      {
-        koSentence: "우리는 지속 가능한 에너지원을 찾아야 합니다.",
-        enSentenceWithBlank: "We need to find ____ energy sources.",
-      },
-      {
-        koSentence: "지속 가능한 발전이 중요하다.",
-        enSentenceWithBlank: "____ development is important.",
-      },
-      {
-        koSentence: "환경을 위해 지속 가능한 선택을 해야 한다.",
-        enSentenceWithBlank: "We should make ____ choices for the environment.",
-      },
-    ],
-  },
-]
-
 export default function LearnPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { settings } = useSettings()
   const { studyMode } = useCourseStore()
 
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [currentCard, setCurrentCard] = useState<StudyCard | null>(null)
+  const [cardsRemaining, setCardsRemaining] = useState(0)
+  const [cardsCompleted, setCardsCompleted] = useState(0)
+  const [startedAt, setStartedAt] = useState<string>("")
+  const [studiedCount, setStudiedCount] = useState(0)
+  const [correctCount, setCorrectCount] = useState(0)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null)
+  const [showSummary, setShowSummary] = useState(false)
 
   const [wrongNotesOpen, setWrongNotesOpen] = useState(false)
   const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
@@ -918,6 +839,42 @@ export default function LearnPage() {
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
 
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const urlSessionId = searchParams.get("sessionId")
+
+        let activeSessionId: string
+
+        if (urlSessionId) {
+          activeSessionId = urlSessionId
+          setSessionId(urlSessionId)
+        } else {
+          const response = await startSession({
+            new_cards_limit: 20,
+            review_cards_limit: 50,
+          })
+          activeSessionId = response.session_id
+          setSessionId(response.session_id)
+          setCardsRemaining(response.cards_remaining)
+          setCardsCompleted(response.cards_completed)
+          setStartedAt(response.started_at)
+        }
+
+        const cardResponse = await getNextCard(activeSessionId)
+        setCurrentCard(cardResponse.card)
+        setCardsRemaining(cardResponse.cards_remaining)
+        setCardsCompleted(cardResponse.cards_completed)
+      } catch (error) {
+        console.error("[v0] Session init error:", error)
+      } finally {
+        setIsLoadingSession(false)
+      }
+    }
+
+    initSession()
+  }, [searchParams])
+
   const sheetHandlers: SheetHandlers = {
     openWrongNotes: () => setWrongNotesOpen(true),
     openAiQuestion: () => setAiQuestionOpen(true),
@@ -925,47 +882,143 @@ export default function LearnPage() {
     openPronunciation: () => setPronunciationOpen(true),
   }
 
-  const session = useMemo(() => {
-    if (studyMode === "typing") {
-      return { type: "typing" as const, cards: MOCK_TYPING_CARDS }
-    }
-    return { type: "standard" as const, cards: MOCK_CARDS }
-  }, [studyMode])
-
-  const total = session.cards.length
-  const progress = (currentIndex / total) * 100
-  const remainingCount = Math.max(total - currentIndex - 1, 0)
+  const total = cardsCompleted + cardsRemaining
+  const progress = total > 0 ? (cardsCompleted / total) * 100 : 0
+  const remainingCount = cardsRemaining
 
   const remainingLabel =
     remainingCount > 0
       ? `${remainingCount}문제를 풀어야 연속 학습을 달성할 수 있어요!`
       : "지금 나가도 오늘 목표는 이미 달성했어요!"
 
-  const currentCard = session.type === "standard" ? session.cards[currentIndex] : MOCK_CARDS[0]
-  const currentTypingCard = session.type === "typing" ? session.cards[currentIndex] : MOCK_TYPING_CARDS[0]
+  const handleRate = async (rating: number) => {
+    if (!sessionId || !currentCard) return
 
-  const handleRate = (rating: number) => {
-    void rating
+    try {
+      const answer = rating === FSRS_RATING.AGAIN ? "__WRONG__" : currentCard.meaning || currentCard.word
 
-    if (currentIndex < total - 1) {
-      setTimeout(() => {
-        setCurrentIndex((prev) => prev + 1)
-      }, 300)
-    } else {
-      router.push("/dashboard")
+      setStudiedCount((prev) => prev + 1)
+      if (rating !== FSRS_RATING.AGAIN) {
+        setCorrectCount((prev) => prev + 1)
+      }
+
+      const answerResponse = await submitAnswer({
+        session_id: sessionId,
+        card_id: currentCard.card_id,
+        answer,
+      })
+
+      setCardsRemaining(answerResponse.cards_remaining)
+      setCardsCompleted(answerResponse.cards_completed)
+
+      if (!answerResponse.correct) {
+        saveWrongNote({
+          word: currentCard.word,
+          meaning: currentCard.meaning || "",
+          userAnswer: answer,
+        })
+      }
+
+      const cardResponse = await getNextCard(sessionId)
+
+      if (!cardResponse.card || cardResponse.cards_remaining === 0) {
+        const summary = await completeSession(sessionId)
+        setSessionSummary(summary.session_summary)
+        setShowSummary(true)
+      } else {
+        setTimeout(() => {
+          setCurrentCard(cardResponse.card)
+          setCardsRemaining(cardResponse.cards_remaining)
+          setCardsCompleted(cardResponse.cards_completed)
+        }, 300)
+      }
+    } catch (error) {
+      console.error("[v0] Submit answer error:", error)
     }
   }
 
   const handleExit = () => {
     setExitDialogOpen(false)
-    setCurrentIndex(0)
     router.push("/dashboard")
+  }
+
+  if (isLoadingSession) {
+    return (
+      <AuthRequired>
+        <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-purple-50">
+          <div className="flex items-center justify-center flex-1">
+            <div className="text-center">
+              <div className="text-lg font-medium text-gray-700">학습 세션을 준비하는 중...</div>
+            </div>
+          </div>
+        </div>
+      </AuthRequired>
+    )
+  }
+
+  if (showSummary && sessionSummary) {
+    return (
+      <AuthRequired>
+        <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-purple-50">
+          <div className="flex items-center justify-center flex-1 p-6">
+            <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full space-y-6">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900">학습 완료!</h2>
+                <p className="text-gray-600 mt-2">오늘도 고생하셨습니다</p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">학습한 카드</span>
+                  <span className="font-semibold text-gray-900">{sessionSummary.total_cards_studied}개</span>
+                </div>
+                <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">정답률</span>
+                  <span className="font-semibold text-gray-900">{sessionSummary.accuracy_percent}%</span>
+                </div>
+                <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">학습 시간</span>
+                  <span className="font-semibold text-gray-900">
+                    {Math.floor(sessionSummary.time_spent_seconds / 60)}분
+                  </span>
+                </div>
+                <div className="flex justify-between p-4 bg-blue-50 rounded-lg">
+                  <span className="text-blue-600">획득 경험치</span>
+                  <span className="font-semibold text-blue-600">+{sessionSummary.xp_earned} XP</span>
+                </div>
+              </div>
+
+              <Button onClick={() => router.push("/dashboard")} className="w-full h-12 text-lg">
+                홈으로
+              </Button>
+            </div>
+          </div>
+        </div>
+      </AuthRequired>
+    )
+  }
+
+  if (!currentCard) {
+    return (
+      <AuthRequired>
+        <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-purple-50">
+          <div className="flex items-center justify-center flex-1">
+            <div className="text-center">
+              <div className="text-lg font-medium text-gray-700">카드를 불러올 수 없습니다</div>
+              <Button onClick={() => router.push("/dashboard")} className="mt-4">
+                홈으로
+              </Button>
+            </div>
+          </div>
+        </div>
+      </AuthRequired>
+    )
   }
 
   const modeProps: ModeProps = {
     card: currentCard,
-    cards: session.type === "standard" ? session.cards : MOCK_CARDS,
-    currentIndex,
+    cards: [currentCard],
+    currentIndex: 0,
     onRate: handleRate,
     playbackSpeed: settings.playbackSpeed,
     ...sheetHandlers,
@@ -982,7 +1035,7 @@ export default function LearnPage() {
             <div className="flex justify-between text-xs text-gray-500 mb-1">
               <span>오늘의 학습</span>
               <span>
-                {currentIndex + 1} / {total}
+                {total - cardsRemaining} / {total}
               </span>
             </div>
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -992,18 +1045,22 @@ export default function LearnPage() {
           <div className="w-10" />
         </div>
 
-        {studyMode === "flip" && <FlashcardMode {...modeProps} />}
-        {studyMode === "mcq" && <MultipleChoiceMode {...modeProps} />}
-        {studyMode === "typing" && <SentenceTypingMode {...modeProps} typingCard={currentTypingCard} />}
+        {studyMode === "flip" && currentCard && <FlashcardMode {...modeProps} />}
+        {studyMode === "mcq" && currentCard && <MultipleChoiceMode {...modeProps} />}
+        {studyMode === "typing" && currentCard && (
+          <SentenceTypingMode {...modeProps} typingCard={currentCard as TypingCard} />
+        )}
 
         <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
         <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
         <PlaceholderSheet open={wordInfoOpen} onOpenChange={setWordInfoOpen} title="단어 정보" />
-        <PronunciationSheet
-          open={pronunciationOpen}
-          onOpenChange={setPronunciationOpen}
-          targetWord={session.type === "typing" ? currentTypingCard.word : currentCard.word}
-        />
+        {currentCard && (
+          <PronunciationSheet
+            open={pronunciationOpen}
+            onOpenChange={setPronunciationOpen}
+            targetWord={currentCard.word}
+          />
+        )}
 
         <AlertDialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
           <AlertDialogContent className="max-w-sm rounded-2xl">
@@ -1012,11 +1069,9 @@ export default function LearnPage() {
               <AlertDialogDescription className="mt-2 text-sm text-gray-600">{remainingLabel}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex flex-row gap-2 sm:flex-row">
-              {/* 나가기 - exit to dashboard */}
               <AlertDialogAction className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300" onClick={handleExit}>
                 나가기
               </AlertDialogAction>
-              {/* 이어서 하기 - just close modal */}
               <AlertDialogAction
                 className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white"
                 onClick={() => setExitDialogOpen(false)}
