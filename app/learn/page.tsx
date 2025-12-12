@@ -30,6 +30,7 @@ import {
   completeSession,
   type StudyCard,
   type SessionSummary,
+  type QuizType,
 } from "@/lib/api/study"
 
 const FSRS_RATING = {
@@ -839,6 +840,9 @@ export default function LearnPage() {
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
 
+  const effectiveStudyMode = studyMode === "typing" ? "flip" : studyMode
+  const quizType: QuizType = effectiveStudyMode === "mcq" ? "word_to_meaning" : "word_to_meaning"
+
   useEffect(() => {
     const initSession = async () => {
       try {
@@ -856,12 +860,10 @@ export default function LearnPage() {
           })
           activeSessionId = response.session_id
           setSessionId(response.session_id)
-          setCardsRemaining(response.cards_remaining)
-          setCardsCompleted(response.cards_completed)
           setStartedAt(response.started_at)
         }
 
-        const cardResponse = await getNextCard(activeSessionId)
+        const cardResponse = await getNextCard(activeSessionId, quizType)
         setCurrentCard(cardResponse.card)
         setCardsRemaining(cardResponse.cards_remaining)
         setCardsCompleted(cardResponse.cards_completed)
@@ -873,7 +875,7 @@ export default function LearnPage() {
     }
 
     initSession()
-  }, [searchParams])
+  }, [searchParams, quizType])
 
   const sheetHandlers: SheetHandlers = {
     openWrongNotes: () => setWrongNotesOpen(true),
@@ -895,7 +897,22 @@ export default function LearnPage() {
     if (!sessionId || !currentCard) return
 
     try {
-      const answer = rating === FSRS_RATING.AGAIN ? "__WRONG__" : currentCard.meaning || currentCard.word
+      let answer: string
+      if (rating === FSRS_RATING.AGAIN) {
+        answer = "__WRONG__"
+      } else {
+        // Determine correct answer based on quiz_type
+        if (currentCard.quiz_type === "word_to_meaning") {
+          answer = currentCard.korean_meaning
+        } else if (currentCard.quiz_type === "meaning_to_word") {
+          answer = currentCard.english_word
+        } else if (currentCard.quiz_type === "cloze" && typeof currentCard.question === "object") {
+          answer = currentCard.question.answer
+        } else {
+          // Default fallback
+          answer = currentCard.english_word
+        }
+      }
 
       setStudiedCount((prev) => prev + 1)
       if (rating !== FSRS_RATING.AGAIN) {
@@ -904,22 +921,19 @@ export default function LearnPage() {
 
       const answerResponse = await submitAnswer({
         session_id: sessionId,
-        card_id: currentCard.card_id,
+        card_id: currentCard.id,
         answer,
       })
 
-      setCardsRemaining(answerResponse.cards_remaining)
-      setCardsCompleted(answerResponse.cards_completed)
-
-      if (!answerResponse.correct) {
+      if (!answerResponse.is_correct) {
         saveWrongNote({
-          word: currentCard.word,
-          meaning: currentCard.meaning || "",
-          userAnswer: answer,
+          word: currentCard.english_word,
+          meaning: currentCard.korean_meaning,
+          userAnswer: answerResponse.user_answer,
         })
       }
 
-      const cardResponse = await getNextCard(sessionId)
+      const cardResponse = await getNextCard(sessionId, quizType)
 
       if (!cardResponse.card || cardResponse.cards_remaining === 0) {
         const summary = await completeSession(sessionId)
@@ -970,21 +984,25 @@ export default function LearnPage() {
               <div className="space-y-3">
                 <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
                   <span className="text-gray-600">학습한 카드</span>
-                  <span className="font-semibold text-gray-900">{sessionSummary.total_cards_studied}개</span>
+                  <span className="font-semibold text-gray-900">{sessionSummary.total_cards}개</span>
+                </div>
+                <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">정답</span>
+                  <span className="font-semibold text-green-600">{sessionSummary.correct}개</span>
+                </div>
+                <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">오답</span>
+                  <span className="font-semibold text-red-600">{sessionSummary.wrong}개</span>
                 </div>
                 <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
                   <span className="text-gray-600">정답률</span>
-                  <span className="font-semibold text-gray-900">{sessionSummary.accuracy_percent}%</span>
+                  <span className="font-semibold text-gray-900">{Math.round(sessionSummary.accuracy)}%</span>
                 </div>
                 <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
                   <span className="text-gray-600">학습 시간</span>
                   <span className="font-semibold text-gray-900">
-                    {Math.floor(sessionSummary.time_spent_seconds / 60)}분
+                    {Math.floor(sessionSummary.duration_seconds / 60)}분
                   </span>
-                </div>
-                <div className="flex justify-between p-4 bg-blue-50 rounded-lg">
-                  <span className="text-blue-600">획득 경험치</span>
-                  <span className="font-semibold text-blue-600">+{sessionSummary.xp_earned} XP</span>
                 </div>
               </div>
 
@@ -1045,10 +1063,20 @@ export default function LearnPage() {
           <div className="w-10" />
         </div>
 
-        {studyMode === "flip" && currentCard && <FlashcardMode {...modeProps} />}
-        {studyMode === "mcq" && currentCard && <MultipleChoiceMode {...modeProps} />}
-        {studyMode === "typing" && currentCard && (
-          <SentenceTypingMode {...modeProps} typingCard={currentCard as TypingCard} />
+        {effectiveStudyMode === "flip" && currentCard && <FlashcardMode {...modeProps} />}
+        {effectiveStudyMode === "mcq" && currentCard && <MultipleChoiceMode {...modeProps} />}
+
+        {studyMode === "typing" && (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center space-y-4 max-w-md">
+              <div className="text-6xl">🚧</div>
+              <h2 className="text-2xl font-bold text-gray-900">타이핑 모드 준비 중</h2>
+              <p className="text-gray-600">타이핑 모드는 현재 개발 중입니다. 잠시만 기다려주세요!</p>
+              <Button onClick={() => router.push("/dashboard")} className="mt-4">
+                홈으로 돌아가기
+              </Button>
+            </div>
+          </div>
         )}
 
         <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
@@ -1058,7 +1086,7 @@ export default function LearnPage() {
           <PronunciationSheet
             open={pronunciationOpen}
             onOpenChange={setPronunciationOpen}
-            targetWord={currentCard.word}
+            targetWord={currentCard.english_word}
           />
         )}
 

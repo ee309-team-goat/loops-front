@@ -1,15 +1,25 @@
-import { apiFetch } from "./http"
+import { apiFetch } from "@/lib/api/http"
 
-// Types
+export type QuizType = "word_to_meaning" | "meaning_to_word" | "cloze" | "listening"
+
+export interface ClozeQuestion {
+  sentence: string
+  answer: string
+  hint?: string | null
+  audio_url?: string | null
+}
+
 export interface StudyCard {
-  card_id: string
-  word: string
-  meaning: string
-  example_sentence?: string
-  example_translation?: string
-  pronunciation?: string
-  deck_name?: string
-  [key: string]: unknown
+  id: number
+  english_word: string
+  korean_meaning: string
+  pronunciation_ipa?: string | null
+  audio_url?: string | null
+  is_new: boolean
+  quiz_type: QuizType
+  question: string | ClozeQuestion
+  options?: string[] | null
+  example_sentences?: unknown[] | null
 }
 
 export interface StartSessionRequest {
@@ -17,11 +27,17 @@ export interface StartSessionRequest {
   review_cards_limit?: number
 }
 
-export interface StartSessionResponse {
+export interface SessionStartResponse {
   session_id: string
-  cards_remaining: number
-  cards_completed: number
+  total_cards: number
+  new_cards_count: number
+  review_cards_count: number
   started_at: string
+}
+
+export interface CardRequest {
+  session_id: string
+  quiz_type: QuizType
 }
 
 export interface CardResponse {
@@ -30,72 +46,82 @@ export interface CardResponse {
   cards_completed: number
 }
 
-export interface SubmitAnswerRequest {
+export interface AnswerRequest {
   session_id: string
-  card_id: string
+  card_id: number
   answer: string
+  response_time_ms?: number
 }
 
-export interface SubmitAnswerResponse {
-  correct: boolean
-  cards_remaining: number
-  cards_completed: number
+export interface AnswerResponse {
+  is_correct: boolean
+  correct_answer: string
+  user_answer: string
+  feedback?: string | null
+  next_review_date?: string | null
+  card_state?: string | null
 }
 
 export interface SessionSummary {
-  total_cards_studied: number
-  correct_count: number
-  accuracy_percent: number
-  time_spent_seconds: number
-  xp_earned: number
-  new_cards_learned: number
-  cards_reviewed: number
+  total_cards: number
+  correct: number
+  wrong: number
+  accuracy: number
+  duration_seconds: number
 }
 
-export interface CompleteSessionResponse {
+export interface SessionCompleteResponse {
   session_summary: SessionSummary
   streak: {
     current_streak: number
     longest_streak: number
+    is_new_record: boolean
+    streak_status: string
+    message: string
   }
   daily_goal: {
-    target: number
+    goal: number
     completed: number
+    progress: number
     is_completed: boolean
   }
   xp: {
+    base_xp: number
+    bonus_xp: number
     total_xp: number
-    level: number
   }
 }
 
 // API Functions
-export async function startSession(params: StartSessionRequest): Promise<StartSessionResponse> {
-  return apiFetch<StartSessionResponse>("/api/v1/study/session/start", {
+export async function startSession(params: StartSessionRequest): Promise<SessionStartResponse> {
+  return apiFetch<SessionStartResponse>("/api/v1/study/session/start", {
     method: "POST",
     auth: true,
     body: params,
   })
 }
 
-export async function getNextCard(sessionId: string): Promise<CardResponse> {
+export async function getNextCard(sessionId: string, quizType: QuizType): Promise<CardResponse> {
   return apiFetch<CardResponse>("/api/v1/study/session/card", {
     method: "POST",
     auth: true,
-    body: { session_id: sessionId },
+    body: {
+      session_id: sessionId,
+      quiz_type: quizType,
+    },
   })
 }
 
-export async function submitAnswer(params: SubmitAnswerRequest): Promise<SubmitAnswerResponse> {
-  return apiFetch<SubmitAnswerResponse>("/api/v1/study/session/answer", {
+export async function submitAnswer(params: AnswerRequest): Promise<AnswerResponse> {
+  return apiFetch<AnswerResponse>("/api/v1/study/session/answer", {
     method: "POST",
     auth: true,
     body: params,
   })
 }
 
-export async function completeSession(sessionId: string): Promise<CompleteSessionResponse> {
-  return apiFetch<CompleteSessionResponse>("/api/v1/study/session/complete", {
+export async function completeSession(sessionId: string): Promise<SessionCompleteResponse> {
+  return apiFetch<SessionCompleteResponse>("/api/v1/study/session/complete", {
     method: "POST",
     auth: true,
     body: { session_id: sessionId },
