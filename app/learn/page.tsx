@@ -390,10 +390,9 @@ function MultipleChoiceMode({
   const hasOtherExamples = mockExamples.length > 1
 
   const handleReveal = () => {
+    if (!selectedChoice) return
     setIsRevealed(true)
-    if (selectedChoice) {
-      onUserAnswer?.(selectedChoice)
-    }
+    onUserAnswer?.(selectedChoice)
     if (selectedChoice && selectedChoice !== card.korean_meaning && !wasIncorrectSaved) {
       setWasIncorrectSaved(true)
       saveWrongNote({
@@ -924,6 +923,8 @@ export default function LearnPage() {
       if (rating === FSRS_RATING.AGAIN) {
         setPendingUserAnswer(null)
         answer = "__WRONG__"
+      } else if (studyMode === "mcq" && !pendingUserAnswer) {
+        return
       } else if (pendingUserAnswer) {
         answer = pendingUserAnswer
         setPendingUserAnswer(null)
