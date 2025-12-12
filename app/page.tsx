@@ -2,36 +2,11 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
-
-const DEV_MODE = true
 
 export default function LandingPage() {
-  const router = useRouter()
-
-  const handleDevSkip = () => {
-    localStorage.setItem(
-      "authInfo",
-      JSON.stringify({
-        type: "guest",
-        email: "devs@kaist.ac.kr",
-        loginMethod: "dev_skip",
-      }),
-    )
-    router.push("/dashboard")
-  }
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
-      {DEV_MODE && (
-        <button
-          onClick={handleDevSkip}
-          className="absolute top-4 right-4 text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md hover:bg-accent transition-colors"
-        >
-          [DEV] Skip
-        </button>
-      )}
-      {/* END DEV SKIP BUTTON */}
+      {/* Removed DEV Skip button */}
 
       <div className="max-w-md w-full text-center space-y-8">
         <div className="space-y-2">
