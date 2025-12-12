@@ -63,6 +63,7 @@ interface ModeProps extends SheetHandlers {
   currentIndex: number
   onRate: (rating: number) => void
   playbackSpeed: number
+  onUserAnswer?: (ans: string | null) => void
 }
 
 interface TypingModeProps extends ModeProps {
@@ -355,6 +356,7 @@ function MultipleChoiceMode({
   openAiQuestion,
   openWordInfo,
   openPronunciation,
+  onUserAnswer,
 }: ModeProps) {
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [isRevealed, setIsRevealed] = useState(false)
@@ -389,6 +391,9 @@ function MultipleChoiceMode({
 
   const handleReveal = () => {
     setIsRevealed(true)
+    if (selectedChoice) {
+      onUserAnswer?.(selectedChoice)
+    }
     if (selectedChoice && selectedChoice !== card.korean_meaning && !wasIncorrectSaved) {
       setWasIncorrectSaved(true)
       saveWrongNote({
@@ -891,6 +896,10 @@ export default function LearnPage() {
     initSession()
   }, [searchParams, quizType, studyMode])
 
+  useEffect(() => {
+    setPendingUserAnswer(null)
+  }, [currentCard?.id])
+
   const sheetHandlers: SheetHandlers = {
     openWrongNotes: () => setWrongNotesOpen(true),
     openAiQuestion: () => setAiQuestionOpen(true),
@@ -913,10 +922,11 @@ export default function LearnPage() {
     try {
       let answer: string
       if (rating === FSRS_RATING.AGAIN) {
+        setPendingUserAnswer(null)
         answer = "__WRONG__"
       } else if (pendingUserAnswer) {
         answer = pendingUserAnswer
-        setPendingUserAnswer(null) // Reset after use
+        setPendingUserAnswer(null)
       } else {
         if (currentCard.quiz_type === "word_to_meaning") {
           answer = currentCard.korean_meaning
@@ -964,6 +974,8 @@ export default function LearnPage() {
       }
     } catch (error) {
       console.error("[v0] Submit answer error:", error)
+    } finally {
+      setPendingUserAnswer(null)
     }
   }
 
@@ -1083,6 +1095,7 @@ export default function LearnPage() {
     currentIndex: 0,
     onRate: handleRate,
     playbackSpeed: settings.playbackSpeed,
+    onUserAnswer: setPendingUserAnswer,
     ...sheetHandlers,
   }
 

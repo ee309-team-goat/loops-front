@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api/http"
+import { apiFetch } from "@/lib/api/client"
 
 export type QuizType = "word_to_meaning" | "meaning_to_word" | "cloze" | "listening"
 

@@ -2,6 +2,9 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
 
+export { apiFetch, ApiError } from "@/lib/api/http"
+export type { ApiFetchOptions } from "@/lib/api/http"
+
 export async function fetchClient<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
