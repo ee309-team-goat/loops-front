@@ -22,11 +22,18 @@ export interface StudyCard {
   example_sentences?: unknown[] | null
 }
 
+export interface DueCard {
+  english_word: string
+  korean_meaning: string
+  next_review_date?: string | null
+  card_state?: string | null
+}
+
 export interface StudyOverviewResponse {
   new_cards_count: number
   review_cards_count: number
   total_available: number
-  due_cards?: unknown[]
+  due_cards: DueCard[]
 }
 
 export interface SessionStartRequest {

@@ -390,7 +390,7 @@ export default function StatisticsPage() {
     [todayProgress, todayStudyTimeMinutes],
   )
 
-  const dueCards = useMemo(() => (studyOverview.due_cards || []).slice(0, 10), [studyOverview])
+  const dueCards = useMemo(() => (studyOverview.due_cards ?? []).slice(0, 10), [studyOverview])
 
   const months = ["DEC", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV"]
   const daysOfWeek = ["월", "화", "수", "목", "금", "토", "일"]
