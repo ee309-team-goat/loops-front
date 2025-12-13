@@ -128,18 +128,26 @@ function buildLastNDaysSkeleton(n = 7) {
     const date = new Date()
     date.setDate(date.getDate() - i)
     const ymd = toYmd(date)
-    const dayLabel = dayNames[date.getDay()]
+    const dayLabel = i === 0 ? "오늘" : dayNames[date.getDay()]
     const displayDate = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`
     skeleton.push({ ymd, dayLabel, displayDate })
   }
   return skeleton
 }
 
-function normalizeYmd(dateStr?: string | null) {
+function safeYmd(dateStr?: string | null): string | null {
   if (!dateStr) return null
+  const head = dateStr.slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(head)) {
+    return head
+  }
   const parsed = new Date(dateStr)
   if (Number.isNaN(parsed.getTime())) return null
   return toYmd(parsed)
+}
+
+function normalizeYmd(dateStr?: string | null) {
+  return safeYmd(dateStr)
 }
 
 function buildHeatmapLevels(history: StatsHistoryRead) {
@@ -171,7 +179,8 @@ function buildHeatmapLevels(history: StatsHistoryRead) {
   let isFirst = true
 
   days.forEach(({ ymd, count }) => {
-    const dateObj = new Date(ymd)
+    const parts = ymd.split("-").map((p) => Number(p))
+    const dateObj = new Date(parts[0], parts[1] - 1, parts[2])
     const dayIdx = (dateObj.getDay() + 6) % 7 // Monday=0 ... Sunday=6
     if (!isFirst && dayIdx < prevIdx) {
       weeks.push(currentWeek)
@@ -194,10 +203,10 @@ function buildHeatmapLevels(history: StatsHistoryRead) {
 }
 
 function formatDueDate(dateStr?: string | null) {
-  if (!dateStr) return "-"
-  const parsed = new Date(dateStr)
-  if (Number.isNaN(parsed.getTime())) return "-"
-  return `${parsed.getFullYear()}.${String(parsed.getMonth() + 1).padStart(2, "0")}.${String(parsed.getDate()).padStart(2, "0")}`
+  const ymd = safeYmd(dateStr)
+  if (!ymd) return "-"
+  const [y, m, d] = ymd.split("-")
+  return `${y}.${m}.${d}`
 }
 
 export default function StatisticsPage() {
@@ -250,7 +259,7 @@ export default function StatisticsPage() {
         getTodayProgress(),
         getTotalLearned(),
         getStatsAccuracy(),
-        getStudyOverview(),
+        getStudyOverview(50),
         getStatsHistory("1y"),
       ])
 
@@ -617,7 +626,13 @@ export default function StatisticsPage() {
                   )}
                 </div>
 
-                <Button variant="outline" className="w-full bg-transparent" disabled>
+                <Button
+                  variant="outline"
+                  className="w-full bg-transparent"
+                  onClick={() => {
+                    console.debug("[statistics] 집중 복습 CTA clicked")
+                  }}
+                >
                   취약 단어만 집중 복습
                 </Button>
               </div>
