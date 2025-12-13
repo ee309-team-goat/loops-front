@@ -66,11 +66,12 @@ const studyVolumeMock: Record<PeriodValue, StudyVolumePoint[]> = {
 interface StudyVolumeCardProps {
   period: PeriodValue
   onPeriodChange: (value: PeriodValue) => void
+  dataOverride?: StudyVolumePoint[]
 }
 
-export function StudyVolumeCard({ period, onPeriodChange }: StudyVolumeCardProps) {
+export function StudyVolumeCard({ period, onPeriodChange, dataOverride }: StudyVolumeCardProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const data = studyVolumeMock[period] ?? []
+  const data = dataOverride ?? studyVolumeMock[period] ?? []
   const totalCount = data.reduce((sum, p) => sum + p.value, 0)
   const dayCount = data.length || 1
   const avgCount = Math.round(totalCount / dayCount)

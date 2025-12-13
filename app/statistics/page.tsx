@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, TrendingUp, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
@@ -10,6 +10,99 @@ import { TodayStudyInfoSection } from "@/components/stats/today-study-info-secti
 import type { PeriodValue } from "@/components/stats/period-segment"
 import { StudyTimeCard } from "@/components/stats/study-time-card"
 import { StudyVolumeCard } from "@/components/stats/study-volume-card"
+import { getTodayProgress, type TodayProgressRead } from "@/lib/api/profile"
+import {
+  getStatsAccuracy,
+  getStatsHistory,
+  getTotalLearned,
+  type StatsAccuracyRead,
+  type StatsHistoryPeriod,
+  type StatsHistoryRead,
+  type TotalLearnedRead,
+} from "@/lib/api/stats"
+import { toast } from "@/components/ui/use-toast"
+
+const fallbackTodayProgress: TodayProgressRead = {
+  total_reviews: 0,
+  correct_count: 0,
+  wrong_count: 0,
+  accuracy_rate: 0,
+  daily_goal: 0,
+  goal_progress: 0,
+}
+
+const fallbackTotalLearned: TotalLearnedRead = {
+  total_learned: 0,
+  by_level: {},
+  total_study_time_minutes: 0,
+}
+
+const fallbackStatsAccuracy: StatsAccuracyRead = {
+  overall_accuracy: 0,
+  total_reviews: 0,
+  total_correct: 0,
+  by_period: {},
+  by_cefr_level: {},
+  trend: "stable",
+}
+
+const fallbackStatsHistory = (period: StatsHistoryPeriod): StatsHistoryRead => ({
+  period,
+  data: [],
+})
+
+function toSafeNumber(value: number | null | undefined, fallback = 0) {
+  return Number.isFinite(value) ? (value as number) : fallback
+}
+
+function formatTimeFromMinutes(minutes: number) {
+  const safeMinutes = Math.max(0, toSafeNumber(minutes))
+  const hours = Math.floor(safeMinutes / 60)
+  const mins = safeMinutes % 60
+  if (hours === 0) return `${mins}m`
+  return `${hours}h ${mins}m`
+}
+
+function mapPeriod(value: PeriodValue): StatsHistoryPeriod {
+  if (value === "week") return "7d"
+  if (value === "month") return "30d"
+  if (value === "year") return "1y"
+  return "90d"
+}
+
+function buildHistoryPoints(history: StatsHistoryRead) {
+  return (history.data ?? []).map((item) => {
+    const dateObj = new Date(item.date)
+    const label =
+      Number.isNaN(dateObj.getTime()) || !item.date
+        ? item.date
+        : `${String(dateObj.getMonth() + 1).padStart(2, "0")}/${String(dateObj.getDate()).padStart(2, "0")}`
+    return {
+      label: label || "-",
+      value: Math.max(0, toSafeNumber(item.cards_studied)),
+      date: item.date,
+    }
+  })
+}
+
+function buildEmptyWeekData(): { day: string; count: number; date: string }[] {
+  const today = new Date()
+  const dayNames = ["일", "월", "화", "수", "목", "금", "토"]
+  const data = []
+
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(today.getDate() - i)
+    const dateStr = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`
+
+    data.push({
+      day: i === 0 ? "오늘" : dayNames[date.getDay()],
+      count: 0,
+      date: dateStr,
+    })
+  }
+  return data
+}
 
 export default function StatisticsPage() {
   const router = useRouter()
@@ -17,26 +110,147 @@ export default function StatisticsPage() {
   const [activeTab, setActiveTab] = useState<"period" | "study" | "vocab">("period")
   const [studyTimePeriod, setStudyTimePeriod] = useState<PeriodValue>("week")
   const [studyVolumePeriod, setStudyVolumePeriod] = useState<PeriodValue>("week")
+  const [todayProgress, setTodayProgress] = useState<TodayProgressRead>(fallbackTodayProgress)
+  const [totalLearned, setTotalLearned] = useState<TotalLearnedRead>(fallbackTotalLearned)
+  const [statsAccuracy, setStatsAccuracy] = useState<StatsAccuracyRead>(fallbackStatsAccuracy)
+  const [statsHistory, setStatsHistory] = useState<StatsHistoryRead>(fallbackStatsHistory(mapPeriod("week")))
+  const [isLoading, setIsLoading] = useState(true)
+  const errorToastShownRef = useRef(false)
+
+  const historyPoints = useMemo(() => {
+    const mapped = buildHistoryPoints(statsHistory)
+    return mapped.length > 0 ? mapped : []
+  }, [statsHistory])
 
   const weeklyData = useMemo(() => {
-    const today = new Date()
+    if (historyPoints.length === 0) return buildEmptyWeekData()
     const dayNames = ["일", "월", "화", "수", "목", "금", "토"]
-    const data = []
+    return historyPoints.map((point) => {
+      const dateObj = point.date ? new Date(point.date) : null
+      const dayLabel = dateObj && !Number.isNaN(dateObj.getTime()) ? dayNames[dateObj.getDay()] : point.label
+      const formattedDate =
+        dateObj && !Number.isNaN(dateObj.getTime())
+          ? `${dateObj.getFullYear()}.${String(dateObj.getMonth() + 1).padStart(2, "0")}.${String(dateObj.getDate()).padStart(2, "0")}`
+          : point.date || point.label
 
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(today.getDate() - i)
-      const dayOfWeek = date.getDay()
-      const dateStr = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`
+      return {
+        day: dayLabel || "-",
+        count: point.value,
+        date: formattedDate,
+      }
+    })
+  }, [historyPoints])
 
-      data.push({
-        day: i === 0 ? "오늘" : dayNames[dayOfWeek],
-        count: Math.floor(Math.random() * 30) + 5,
-        date: dateStr,
-      })
+  useEffect(() => {
+    let isMounted = true
+
+    ;(async () => {
+      const [todayRes, totalRes, accuracyRes] = await Promise.allSettled([
+        getTodayProgress(),
+        getTotalLearned(),
+        getStatsAccuracy(),
+      ])
+
+      if (!isMounted) return
+
+      const hasError =
+        todayRes.status === "rejected" || totalRes.status === "rejected" || accuracyRes.status === "rejected"
+
+      if (todayRes.status === "fulfilled") {
+        setTodayProgress(todayRes.value)
+      } else {
+        console.debug("[statistics] today-progress failed", todayRes.reason)
+        setTodayProgress(fallbackTodayProgress)
+      }
+
+      if (totalRes.status === "fulfilled") {
+        setTotalLearned(totalRes.value)
+      } else {
+        console.debug("[statistics] total-learned failed", totalRes.reason)
+        setTotalLearned(fallbackTotalLearned)
+      }
+
+      if (accuracyRes.status === "fulfilled") {
+        setStatsAccuracy(accuracyRes.value)
+      } else {
+        console.debug("[statistics] stats accuracy failed", accuracyRes.reason)
+        setStatsAccuracy(fallbackStatsAccuracy)
+      }
+
+      if (hasError && !errorToastShownRef.current) {
+        errorToastShownRef.current = true
+        toast({
+          title: "일부 데이터 로딩 실패",
+          description: "일부 학습 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
+        })
+      }
+
+      setIsLoading(false)
+    })()
+
+    return () => {
+      isMounted = false
     }
-    return data
   }, [])
+
+  useEffect(() => {
+    let isMounted = true
+    const period = mapPeriod(studyVolumePeriod)
+    setStatsHistory(fallbackStatsHistory(period))
+
+    ;(async () => {
+      try {
+        const res = await getStatsHistory(period)
+        if (!isMounted) return
+        setStatsHistory(res)
+      } catch (err) {
+        if (!isMounted) return
+        console.debug("[statistics] stats history failed", err)
+        setStatsHistory(fallbackStatsHistory(period))
+        if (!errorToastShownRef.current) {
+          errorToastShownRef.current = true
+          toast({
+            title: "일부 데이터 로딩 실패",
+            description: "일부 학습 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
+          })
+        }
+      } finally {
+        // no-op
+      }
+    })()
+
+    return () => {
+      isMounted = false
+    }
+  }, [studyVolumePeriod])
+
+  const studyVolumeData = useMemo(() => {
+    if (historyPoints.length === 0) {
+      return [{ label: "-", value: 0, date: "-" }]
+    }
+    return historyPoints
+  }, [historyPoints])
+
+  const weeklyMaxCount = Math.max(...weeklyData.map((d) => d.count), 1)
+  const totalLearnedCount = Math.max(0, toSafeNumber(totalLearned.total_learned))
+  const totalStudyTimeLabel = formatTimeFromMinutes(totalLearned.total_study_time_minutes)
+  const accuracyPercent = Math.max(0, Math.round(toSafeNumber(statsAccuracy.overall_accuracy)))
+
+  const todayInfoData = useMemo(
+    () => ({
+      totalStudyTimeSec: Math.max(0, toSafeNumber(totalLearned.total_study_time_minutes)) * 60,
+      totalQuestions: Math.max(0, toSafeNumber(todayProgress.total_reviews)),
+      vocab: {
+        reviewAccuracyPercent: Math.max(0, Math.round(toSafeNumber(todayProgress.accuracy_rate))),
+        newCount: Math.max(0, toSafeNumber(todayProgress.correct_count + todayProgress.wrong_count)),
+        reviewCount: Math.max(0, toSafeNumber(todayProgress.total_reviews)),
+      },
+      grammar: {},
+      expression: {},
+      listening: {},
+    }),
+    [todayProgress, totalLearned],
+  )
 
   const weakWords = [
     { word: "accommodate", wrongCount: 5, accuracy: 40 },
@@ -63,8 +277,6 @@ export default function StatisticsPage() {
 
   const heatmapData = generateHeatmapData()
   const heatmapColors = ["bg-gray-100", "bg-indigo-100", "bg-indigo-200", "bg-indigo-400", "bg-indigo-600"]
-
-  const maxCount = Math.max(...weeklyData.map((d) => d.count))
 
   const handleDayClick = (index: number) => {
     if (selectedDayIndex === index) {
@@ -117,7 +329,7 @@ export default function StatisticsPage() {
 
         <div className="p-4 space-y-6">
           {/* Today Study Info Section */}
-          {activeTab === "period" && <TodayStudyInfoSection isLoading={false} />}
+          {activeTab === "period" && <TodayStudyInfoSection isLoading={isLoading} data={todayInfoData} />}
 
           {/* Period Tab Content */}
           {activeTab === "period" && (
@@ -126,7 +338,7 @@ export default function StatisticsPage() {
               <h2 className="text-base font-bold text-gray-900">기간별 학습 정보</h2>
 
               <StudyTimeCard period={studyTimePeriod} onPeriodChange={setStudyTimePeriod} />
-              <StudyVolumeCard period={studyVolumePeriod} onPeriodChange={setStudyVolumePeriod} />
+              <StudyVolumeCard period={studyVolumePeriod} onPeriodChange={setStudyVolumePeriod} dataOverride={studyVolumeData} />
 
               {/* Weekly Stats */}
               <div className="bg-white rounded-2xl p-6 space-y-4">
@@ -160,7 +372,7 @@ export default function StatisticsPage() {
                             className={`w-full rounded-t-lg transition-all ${
                               selectedDayIndex === index ? "bg-indigo-600" : "bg-indigo-400"
                             }`}
-                            style={{ height: `${(data.count / maxCount) * 100}%` }}
+                            style={{ height: `${weeklyMaxCount > 0 ? (data.count / weeklyMaxCount) * 100 : 0}%` }}
                           />
                         </div>
                       </div>
@@ -177,15 +389,15 @@ export default function StatisticsPage() {
 
                 <div className="pt-4 border-t border-gray-100 grid grid-cols-3 gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">120</div>
+                    <div className="text-2xl font-bold text-gray-900">{totalLearnedCount}</div>
                     <div className="text-xs text-gray-500">총 단어</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-indigo-600">85%</div>
+                    <div className="text-2xl font-bold text-indigo-600">{accuracyPercent}%</div>
                     <div className="text-xs text-gray-500">정답률</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">2.5h</div>
+                    <div className="text-2xl font-bold text-gray-900">{totalStudyTimeLabel}</div>
                     <div className="text-xs text-gray-500">학습 시간</div>
                   </div>
                 </div>
