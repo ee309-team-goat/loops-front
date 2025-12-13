@@ -49,12 +49,32 @@ export default function LoginPage() {
     }
   }
 
+  const handleDevSkip = () => {
+    localStorage.setItem(
+      "loops:auth",
+      JSON.stringify({
+        access_token: "dev-skip-token",
+        refresh_token: "dev-skip-refresh-token",
+        user: {
+          id: "dev-user",
+          email: "dev@example.com",
+          username: "DevUser",
+        },
+      }),
+    )
+    window.location.href = "/dashboard"
+  }
+
   return (
     <div className="min-h-screen bg-white p-6 flex flex-col">
       <Link href="/" className="inline-flex items-center text-gray-500 mb-8">
         <ArrowLeft className="w-4 h-4 mr-2" />
         돌아가기
       </Link>
+
+      <button onClick={handleDevSkip} className="fixed top-4 right-4 text-xs text-gray-400 hover:text-gray-600">
+        [DEV] Skip
+      </button>
 
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full space-y-8">
         <div className="text-center space-y-2">
