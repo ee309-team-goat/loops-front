@@ -122,10 +122,15 @@ export default function StatisticsPage() {
     return mapped.length > 0 ? mapped : []
   }, [statsHistory])
 
+  const weeklyPoints = useMemo(() => {
+    if (historyPoints.length === 0) return []
+    return historyPoints.slice(-7)
+  }, [historyPoints])
+
   const weeklyData = useMemo(() => {
-    if (historyPoints.length === 0) return buildEmptyWeekData()
+    if (weeklyPoints.length === 0) return buildEmptyWeekData()
     const dayNames = ["일", "월", "화", "수", "목", "금", "토"]
-    return historyPoints.map((point) => {
+    return weeklyPoints.map((point) => {
       const dateObj = point.date ? new Date(point.date) : null
       const dayLabel = dateObj && !Number.isNaN(dateObj.getTime()) ? dayNames[dateObj.getDay()] : point.label
       const formattedDate =
@@ -139,7 +144,7 @@ export default function StatisticsPage() {
         date: formattedDate,
       }
     })
-  }, [historyPoints])
+  }, [weeklyPoints])
 
   useEffect(() => {
     let isMounted = true
@@ -235,21 +240,25 @@ export default function StatisticsPage() {
   const totalLearnedCount = Math.max(0, toSafeNumber(totalLearned.total_learned))
   const totalStudyTimeLabel = formatTimeFromMinutes(totalLearned.total_study_time_minutes)
   const accuracyPercent = Math.max(0, Math.round(toSafeNumber(statsAccuracy.overall_accuracy)))
+  const todayStudyTimeMinutes = Math.max(
+    0,
+    toSafeNumber((todayProgress as { today_study_time_minutes?: number } | undefined)?.today_study_time_minutes),
+  )
 
   const todayInfoData = useMemo(
     () => ({
-      totalStudyTimeSec: Math.max(0, toSafeNumber(totalLearned.total_study_time_minutes)) * 60,
+      totalStudyTimeSec: todayStudyTimeMinutes * 60,
       totalQuestions: Math.max(0, toSafeNumber(todayProgress.total_reviews)),
       vocab: {
         reviewAccuracyPercent: Math.max(0, Math.round(toSafeNumber(todayProgress.accuracy_rate))),
-        newCount: Math.max(0, toSafeNumber(todayProgress.correct_count + todayProgress.wrong_count)),
+        newCount: 0,
         reviewCount: Math.max(0, toSafeNumber(todayProgress.total_reviews)),
       },
       grammar: {},
       expression: {},
       listening: {},
     }),
-    [todayProgress, totalLearned],
+    [todayProgress, todayStudyTimeMinutes],
   )
 
   const weakWords = [
