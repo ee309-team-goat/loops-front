@@ -20,6 +20,7 @@ import {
   type StatsHistoryRead,
   type TotalLearnedRead,
 } from "@/lib/api/stats"
+import { getStudyOverview, type StudyOverviewResponse } from "@/lib/api/study"
 import { toast } from "@/components/ui/use-toast"
 
 const fallbackTodayProgress: TodayProgressRead = {
@@ -51,6 +52,13 @@ const fallbackStatsHistory = (period: StatsHistoryPeriod): StatsHistoryRead => (
   data: [],
 })
 
+const fallbackStudyOverview: StudyOverviewResponse = {
+  new_cards_count: 0,
+  review_cards_count: 0,
+  total_available: 0,
+  due_cards: [],
+}
+
 function toSafeNumber(value: number | null | undefined, fallback = 0) {
   return Number.isFinite(value) ? (value as number) : fallback
 }
@@ -71,18 +79,20 @@ function mapPeriod(value: PeriodValue): StatsHistoryPeriod {
 }
 
 function buildHistoryPoints(history: StatsHistoryRead) {
-  return (history.data ?? []).map((item) => {
-    const dateObj = new Date(item.date)
-    const label =
-      Number.isNaN(dateObj.getTime()) || !item.date
-        ? item.date
-        : `${String(dateObj.getMonth() + 1).padStart(2, "0")}/${String(dateObj.getDate()).padStart(2, "0")}`
-    return {
-      label: label || "-",
-      value: Math.max(0, toSafeNumber(item.cards_studied)),
-      date: item.date,
-    }
-  })
+  return (history.data ?? [])
+    .map((item) => {
+      const dateObj = new Date(item.date)
+      const label =
+        Number.isNaN(dateObj.getTime()) || !item.date
+          ? item.date
+          : `${String(dateObj.getMonth() + 1).padStart(2, "0")}/${String(dateObj.getDate()).padStart(2, "0")}`
+      return {
+        label: label || "-",
+        value: Math.max(0, toSafeNumber(item.cards_studied)),
+        date: item.date,
+      }
+    })
+    .filter((item) => item.date)
 }
 
 function buildEmptyWeekData(): { day: string; count: number; date: string }[] {
@@ -104,6 +114,92 @@ function buildEmptyWeekData(): { day: string; count: number; date: string }[] {
   return data
 }
 
+function toYmd(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function buildLastNDaysSkeleton(n = 7) {
+  const skeleton = []
+  const dayNames = ["일", "월", "화", "수", "목", "금", "토"]
+  for (let i = n - 1; i >= 0; i--) {
+    const date = new Date()
+    date.setDate(date.getDate() - i)
+    const ymd = toYmd(date)
+    const dayLabel = dayNames[date.getDay()]
+    const displayDate = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`
+    skeleton.push({ ymd, dayLabel, displayDate })
+  }
+  return skeleton
+}
+
+function normalizeYmd(dateStr?: string | null) {
+  if (!dateStr) return null
+  const parsed = new Date(dateStr)
+  if (Number.isNaN(parsed.getTime())) return null
+  return toYmd(parsed)
+}
+
+function buildHeatmapLevels(history: StatsHistoryRead) {
+  const map = new Map<string, number>()
+  ;(history.data ?? []).forEach((item) => {
+    const ymd = normalizeYmd(item.date)
+    if (ymd) {
+      map.set(ymd, Math.max(0, toSafeNumber(item.cards_studied)))
+    }
+  })
+
+  const days: { ymd: string; count: number }[] = []
+  for (let i = 364; i >= 0; i--) {
+    const date = new Date()
+    date.setDate(date.getDate() - i)
+    const ymd = toYmd(date)
+    days.push({ ymd, count: map.get(ymd) ?? 0 })
+  }
+
+  const maxCount = days.reduce((max, d) => Math.max(max, d.count), 0)
+  const levelFor = (count: number) => {
+    if (maxCount <= 0 || count <= 0) return 0
+    return Math.min(4, Math.max(1, Math.ceil((count / maxCount) * 4)))
+  }
+
+  const weeks: number[][] = []
+  let currentWeek: number[] = new Array(7).fill(0)
+  let prevIdx = 0
+  let isFirst = true
+
+  days.forEach(({ ymd, count }) => {
+    const dateObj = new Date(ymd)
+    const dayIdx = (dateObj.getDay() + 6) % 7 // Monday=0 ... Sunday=6
+    if (!isFirst && dayIdx < prevIdx) {
+      weeks.push(currentWeek)
+      currentWeek = new Array(7).fill(0)
+    }
+    currentWeek[dayIdx] = levelFor(count)
+    prevIdx = dayIdx
+    isFirst = false
+  })
+
+  weeks.push(currentWeek)
+
+  const last52 = weeks.slice(-52)
+  if (last52.length < 52) {
+    const missing = 52 - last52.length
+    const padding = Array.from({ length: missing }, () => new Array(7).fill(0))
+    return [...padding, ...last52]
+  }
+  return last52
+}
+
+function formatDueDate(dateStr?: string | null) {
+  if (!dateStr) return "-"
+  const parsed = new Date(dateStr)
+  if (Number.isNaN(parsed.getTime())) return "-"
+  return `${parsed.getFullYear()}.${String(parsed.getMonth() + 1).padStart(2, "0")}.${String(parsed.getDate()).padStart(2, "0")}`
+}
+
 export default function StatisticsPage() {
   const router = useRouter()
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null)
@@ -114,6 +210,8 @@ export default function StatisticsPage() {
   const [totalLearned, setTotalLearned] = useState<TotalLearnedRead>(fallbackTotalLearned)
   const [statsAccuracy, setStatsAccuracy] = useState<StatsAccuracyRead>(fallbackStatsAccuracy)
   const [statsHistory, setStatsHistory] = useState<StatsHistoryRead>(fallbackStatsHistory(mapPeriod("week")))
+  const [heatmapHistory, setHeatmapHistory] = useState<StatsHistoryRead>(fallbackStatsHistory("1y"))
+  const [studyOverview, setStudyOverview] = useState<StudyOverviewResponse>(fallbackStudyOverview)
   const [isLoading, setIsLoading] = useState(true)
   const errorToastShownRef = useRef(false)
 
@@ -122,44 +220,48 @@ export default function StatisticsPage() {
     return mapped.length > 0 ? mapped : []
   }, [statsHistory])
 
-  const weeklyPoints = useMemo(() => {
-    if (historyPoints.length === 0) return []
-    return historyPoints.slice(-7)
-  }, [historyPoints])
-
   const weeklyData = useMemo(() => {
-    if (weeklyPoints.length === 0) return buildEmptyWeekData()
-    const dayNames = ["일", "월", "화", "수", "목", "금", "토"]
-    return weeklyPoints.map((point) => {
-      const dateObj = point.date ? new Date(point.date) : null
-      const dayLabel = dateObj && !Number.isNaN(dateObj.getTime()) ? dayNames[dateObj.getDay()] : point.label
-      const formattedDate =
-        dateObj && !Number.isNaN(dateObj.getTime())
-          ? `${dateObj.getFullYear()}.${String(dateObj.getMonth() + 1).padStart(2, "0")}.${String(dateObj.getDate()).padStart(2, "0")}`
-          : point.date || point.label
+    if (!statsHistory?.data || statsHistory.data.length === 0) return buildEmptyWeekData()
 
-      return {
-        day: dayLabel || "-",
-        count: point.value,
-        date: formattedDate,
+    const skeleton = buildLastNDaysSkeleton(7)
+    const valueMap = new Map<string, number>()
+
+    statsHistory.data.forEach((item) => {
+      const ymd = normalizeYmd(item.date)
+      if (ymd) {
+        valueMap.set(ymd, Math.max(0, toSafeNumber(item.cards_studied)))
       }
     })
-  }, [weeklyPoints])
+
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"]
+
+    return skeleton.map(({ ymd, dayLabel, displayDate }) => ({
+      day: dayLabel || dayNames[0],
+      count: valueMap.get(ymd) ?? 0,
+      date: displayDate,
+    }))
+  }, [statsHistory])
 
   useEffect(() => {
     let isMounted = true
 
     ;(async () => {
-      const [todayRes, totalRes, accuracyRes] = await Promise.allSettled([
+      const [todayRes, totalRes, accuracyRes, overviewRes, heatmapRes] = await Promise.allSettled([
         getTodayProgress(),
         getTotalLearned(),
         getStatsAccuracy(),
+        getStudyOverview(),
+        getStatsHistory("1y"),
       ])
 
       if (!isMounted) return
 
       const hasError =
-        todayRes.status === "rejected" || totalRes.status === "rejected" || accuracyRes.status === "rejected"
+        todayRes.status === "rejected" ||
+        totalRes.status === "rejected" ||
+        accuracyRes.status === "rejected" ||
+        overviewRes.status === "rejected" ||
+        heatmapRes.status === "rejected"
 
       if (todayRes.status === "fulfilled") {
         setTodayProgress(todayRes.value)
@@ -180,6 +282,20 @@ export default function StatisticsPage() {
       } else {
         console.debug("[statistics] stats accuracy failed", accuracyRes.reason)
         setStatsAccuracy(fallbackStatsAccuracy)
+      }
+
+      if (overviewRes.status === "fulfilled") {
+        setStudyOverview(overviewRes.value)
+      } else {
+        console.debug("[statistics] study overview failed", overviewRes.reason)
+        setStudyOverview(fallbackStudyOverview)
+      }
+
+      if (heatmapRes.status === "fulfilled") {
+        setHeatmapHistory(heatmapRes.value)
+      } else {
+        console.debug("[statistics] stats history 1y failed", heatmapRes.reason)
+        setHeatmapHistory(fallbackStatsHistory("1y"))
       }
 
       if (hasError && !errorToastShownRef.current) {
@@ -236,6 +352,10 @@ export default function StatisticsPage() {
     return historyPoints
   }, [historyPoints])
 
+  const heatmapWeeks = useMemo(() => buildHeatmapLevels(heatmapHistory), [heatmapHistory])
+  const heatmapFirstHalf = heatmapWeeks.slice(0, 26)
+  const heatmapSecondHalf = heatmapWeeks.slice(26, 52)
+
   const weeklyMaxCount = Math.max(...weeklyData.map((d) => d.count), 1)
   const totalLearnedCount = Math.max(0, toSafeNumber(totalLearned.total_learned))
   const totalStudyTimeLabel = formatTimeFromMinutes(totalLearned.total_study_time_minutes)
@@ -261,30 +381,10 @@ export default function StatisticsPage() {
     [todayProgress, todayStudyTimeMinutes],
   )
 
-  const weakWords = [
-    { word: "accommodate", wrongCount: 5, accuracy: 40 },
-    { word: "bureaucracy", wrongCount: 4, accuracy: 45 },
-    { word: "conscientious", wrongCount: 4, accuracy: 50 },
-    { word: "entrepreneur", wrongCount: 3, accuracy: 55 },
-    { word: "magnificent", wrongCount: 3, accuracy: 60 },
-  ]
+  const dueCards = useMemo(() => (studyOverview.due_cards || []).slice(0, 10), [studyOverview])
 
   const months = ["DEC", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV"]
   const daysOfWeek = ["월", "화", "수", "목", "금", "토", "일"]
-
-  const generateHeatmapData = () => {
-    const data: number[][] = []
-    for (let week = 0; week < 26; week++) {
-      const weekData: number[] = []
-      for (let day = 0; day < 7; day++) {
-        weekData.push(Math.floor(Math.random() * 5))
-      }
-      data.push(weekData)
-    }
-    return data
-  }
-
-  const heatmapData = generateHeatmapData()
   const heatmapColors = ["bg-gray-100", "bg-indigo-100", "bg-indigo-200", "bg-indigo-400", "bg-indigo-600"]
 
   const handleDayClick = (index: number) => {
@@ -435,86 +535,89 @@ export default function StatisticsPage() {
                 </div>
 
                 <div>
-                  <div className="flex text-[10px] text-gray-400 ml-8">
-                    {months.slice(0, 6).map((month) => (
-                      <div key={month} className="flex-1 text-center">
-                        {month}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-1 space-y-[2px]">
-                    {daysOfWeek.map((day, dayIndex) => (
-                      <div key={day} className="flex items-center gap-2">
-                        <span className="text-[10px] leading-none text-gray-400 w-6 flex-shrink-0">{day}</span>
-
-                        <div className="flex gap-[2px] flex-1">
-                          {heatmapData.map((week, weekIndex) => (
-                            <div
-                              key={weekIndex}
-                              className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex text-[10px] text-gray-400 ml-8">
-                    {months.slice(6, 12).map((month) => (
-                      <div key={month} className="flex-1 text-center">
-                        {month}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-1 space-y-[2px]">
-                    {daysOfWeek.map((day, dayIndex) => (
-                      <div key={day} className="flex items-center gap-2">
-                        <span className="text-[10px] leading-none text-gray-400 w-6 flex-shrink-0">{day}</span>
-
-                        <div className="flex gap-[2px] flex-1">
-                          {heatmapData.map((week, weekIndex) => (
-                            <div
-                              key={weekIndex}
-                              className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-orange-600" />
-                  <h2 className="font-bold text-lg text-gray-900">취약 단어 TOP 5</h2>
-                </div>
-
-                <div className="space-y-3">
-                  {weakWords.map((word, index) => (
-                    <div key={word.word} className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{word.word}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-orange-500" style={{ width: `${word.accuracy}%` }} />
-                          </div>
-                          <span className="text-xs text-gray-500 w-10 text-right">{word.accuracy}%</span>
-                        </div>
-                      </div>
+                <div className="flex text-[10px] text-gray-400 ml-8">
+                  {months.slice(0, 6).map((month) => (
+                    <div key={month} className="flex-1 text-center">
+                      {month}
                     </div>
                   ))}
                 </div>
 
-                <Button variant="outline" className="w-full bg-transparent">
+                <div className="mt-1 space-y-[2px]">
+                  {daysOfWeek.map((day, dayIndex) => (
+                    <div key={day} className="flex items-center gap-2">
+                      <span className="text-[10px] leading-none text-gray-400 w-6 flex-shrink-0">{day}</span>
+
+                      <div className="flex gap-[2px] flex-1">
+                        {heatmapFirstHalf.map((week, weekIndex) => (
+                          <div
+                            key={weekIndex}
+                            className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex text-[10px] text-gray-400 ml-8">
+                  {months.slice(6, 12).map((month) => (
+                    <div key={month} className="flex-1 text-center">
+                      {month}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-1 space-y-[2px]">
+                  {daysOfWeek.map((day, dayIndex) => (
+                    <div key={day} className="flex items-center gap-2">
+                      <span className="text-[10px] leading-none text-gray-400 w-6 flex-shrink-0">{day}</span>
+
+                      <div className="flex gap-[2px] flex-1">
+                        {heatmapSecondHalf.map((week, weekIndex) => (
+                          <div
+                            key={weekIndex}
+                            className={`flex-1 aspect-square rounded-[3px] ${heatmapColors[week[dayIndex]]}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+              <div className="bg-white rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-orange-600" />
+                  <h2 className="font-bold text-lg text-gray-900">오늘 복습 예정 TOP10</h2>
+                </div>
+
+                <div className="space-y-3">
+                  {dueCards.length === 0 ? (
+                    <div className="text-sm text-gray-500 text-center py-2">표시할 복습 카드가 없습니다.</div>
+                  ) : (
+                    dueCards.map((card, index) => (
+                      <div key={`${card.english_word}-${index}`} className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{card.english_word}</div>
+                          <div className="text-xs text-gray-500">{card.korean_meaning}</div>
+                          <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500">
+                            <span>{formatDueDate(card.next_review_date)}</span>
+                            {card.card_state ? <span className="text-gray-400">· {card.card_state}</span> : null}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <Button variant="outline" className="w-full bg-transparent" disabled>
                   취약 단어만 집중 복습
                 </Button>
               </div>
