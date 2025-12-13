@@ -95,18 +95,30 @@ export function StudyTimeCard({ period, onPeriodChange }: StudyTimeCardProps) {
         </div>
 
         {/* Line */}
-        <svg className="absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)]" preserveAspectRatio="none">
+        <svg
+          className="absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)]"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
           <polyline
             fill="none"
             stroke="#818cf8"
             strokeWidth="2"
-            points={data
-              .map((point, index) => {
-                const x = (index / (data.length - 1 || 1)) * 100
-                const y = 100 - (point.minutes / maxMinutes) * 100
-                return `${x}%,${y}%`
-              })
-              .join(" ")}
+            vectorEffect="non-scaling-stroke"
+            points={
+              data.length === 0
+                ? "0,100"
+                : data
+                    .map((point, index) => {
+                      const n = data.length
+                      const x = n === 1 ? 50 : (index / (n - 1)) * 100
+                      const safeMax = Number.isFinite(maxMinutes) && maxMinutes > 0 ? maxMinutes : 1
+                      const rawY = 100 - (point.minutes / safeMax) * 100
+                      const y = Number.isFinite(rawY) ? rawY : 100
+                      return `${x.toFixed(2)},${y.toFixed(2)}`
+                    })
+                    .join(" ")
+            }
           />
         </svg>
       </div>
