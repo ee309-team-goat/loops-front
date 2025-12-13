@@ -17,6 +17,23 @@ export class ApiError extends Error {
   }
 }
 
+function joinUrl(baseUrl: string, path: string): string {
+  // Remove trailing slash from baseUrl
+  let base = baseUrl.replace(/\/+$/, "")
+
+  // Ensure path starts with /
+  const p = path.startsWith("/") ? path : `/${path}`
+
+  // Prevent /api/api duplication: if base ends with /api and path starts with /api/
+  if (base.endsWith("/api") && p.startsWith("/api/")) {
+    base = base.slice(0, -4) // Remove trailing /api from base
+  }
+
+  return `${base}${p}`
+}
+
+const loggedUrls = new Set<string>()
+
 async function parseErrorResponse(res: Response): Promise<{ message: string; data: unknown }> {
   let data: unknown = null
   let message = `${res.status} ${res.statusText}`
@@ -79,7 +96,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const { auth = false, body, ...restOptions } = options
 
   const baseUrl = getApiBaseUrl()
-  const url = `${baseUrl}${path}`
+  const url = joinUrl(baseUrl, path)
 
   const headers: HeadersInit = {
     ...(restOptions.headers || {}),
@@ -90,12 +107,12 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     ;(headers as Record<string, string>)["Content-Type"] = "application/json"
   }
 
-  // Attach Authorization header if auth is required
   if (auth) {
     const accessToken = getAccessToken()
-    if (accessToken) {
-      ;(headers as Record<string, string>)["Authorization"] = `Bearer ${accessToken}`
+    if (!accessToken) {
+      throw new ApiError("Unauthorized: missing access token", 401, { reason: "missing_access_token" })
     }
+    ;(headers as Record<string, string>)["Authorization"] = `Bearer ${accessToken}`
   }
 
   const fetchOptions: RequestInit = {
@@ -104,7 +121,16 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     body: body && typeof body === "object" && !(body instanceof FormData) ? JSON.stringify(body) : (body as BodyInit),
   }
 
-  let res = await fetch(url, fetchOptions)
+  let res: Response
+  try {
+    res = await fetch(url, fetchOptions)
+  } catch (err) {
+    if (!loggedUrls.has(url)) {
+      loggedUrls.add(url)
+      console.debug("[apiFetch] Network error", { url, error: (err as Error).message })
+    }
+    throw err
+  }
 
   // Handle 401 - attempt token refresh
   if (res.status === 401 && auth) {
@@ -139,6 +165,14 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
   if (!res.ok) {
     const { message, data } = await parseErrorResponse(res)
+    if (!loggedUrls.has(url)) {
+      loggedUrls.add(url)
+      console.debug("[apiFetch] Request failed", {
+        url,
+        status: res.status,
+        contentType: res.headers.get("content-type"),
+      })
+    }
     throw new ApiError(message, res.status, data)
   }
 
