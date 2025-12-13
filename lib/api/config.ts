@@ -1,3 +1,4 @@
+// Base URL should not include /api/v1 to avoid duplication; path arguments carry it.
 const DEFAULT_BASE_URL = "/_loops_api"
 
 export function getApiBaseUrl(): string {

@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api/client"
+import { apiFetch } from "@/lib/api/http"
 
 export interface TodayProgressRead {
   total_reviews: number
