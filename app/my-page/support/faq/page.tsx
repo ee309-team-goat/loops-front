@@ -7,38 +7,40 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ChevronLeft, Plus, Clock, CheckCircle, ChevronUp, ChevronDown } from "lucide-react"
 import { FAQ_DATA, FAQ_CATEGORIES, type FAQItem } from "@/lib/data/faq-data"
-
-interface SavedQuestion {
-  id: string
-  category: string
-  question: string
-  status: "pending" | "answered"
-  answer?: string
-  createdAt: string
-  answeredAt?: string
-}
+import { getMyFAQQuestions, createFAQQuestion, deleteFAQQuestion, type UserFAQQuestion } from "@/lib/api/faq"
+import { useToast } from "@/hooks/use-toast"
 
 export default function FAQPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [savedQuestions, setSavedQuestions] = useState<SavedQuestion[]>([])
+  const [savedQuestions, setSavedQuestions] = useState<UserFAQQuestion[]>([])
   const [expandedSavedId, setExpandedSavedId] = useState<string | null>(null)
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem("savedFAQQuestions")
-    if (saved) {
-      setSavedQuestions(JSON.parse(saved))
-    }
+    loadQuestions()
   }, [])
 
-  useEffect(() => {
-    if (savedQuestions.length > 0) {
-      localStorage.setItem("savedFAQQuestions", JSON.stringify(savedQuestions))
+  const loadQuestions = async () => {
+    setIsLoading(true)
+    try {
+      const questions = await getMyFAQQuestions()
+      setSavedQuestions(questions)
+    } catch (error) {
+      console.error("Failed to load questions:", error)
+      toast({
+        title: "질문을 불러오는데 실패했습니다",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
-  }, [savedQuestions])
+  }
 
   const filteredFAQs = useMemo(() => {
     return FAQ_DATA.filter((faq) => {
@@ -51,37 +53,56 @@ export default function FAQPage() {
     setExpandedId(expandedId === id ? null : id)
   }
 
-  const handleSaveQuestion = () => {
+  const handleSaveQuestion = async () => {
     if (searchQuery.trim() === "") return
 
-    const newQuestion: SavedQuestion = {
-      id: Date.now().toString(),
-      category: selectedCategory,
-      question: searchQuery.trim(),
-      status: "pending",
-      createdAt: new Date().toISOString(),
+    setIsSaving(true)
+    try {
+      const newQuestion = await createFAQQuestion({
+        category: selectedCategory === "all" ? "other" : selectedCategory,
+        question: searchQuery.trim(),
+      })
+
+      setSavedQuestions([newQuestion, ...savedQuestions])
+      setShowSaveConfirm(true)
+      setSearchQuery("")
+
+      setTimeout(() => setShowSaveConfirm(false), 3000)
+
+      toast({
+        title: "질문이 저장되었습니다",
+        description: "답변이 등록되면 알림을 보내드릴게요",
+      })
+    } catch (error) {
+      console.error("Failed to save question:", error)
+      toast({
+        title: "질문 저장에 실패했습니다",
+        description: "다시 시도해주세요",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
     }
-
-    setSavedQuestions([...savedQuestions, newQuestion])
-    setShowSaveConfirm(true)
-    setSearchQuery("")
-
-    setTimeout(() => setShowSaveConfirm(false), 3000)
-
-    // TODO: 백엔드 연동 시 여기서 API 호출
-    console.log("저장된 질문:", newQuestion)
   }
 
-  const handleDeleteQuestion = (id: string) => {
-    const updated = savedQuestions.filter((q) => q.id !== id)
-    setSavedQuestions(updated)
-    if (updated.length === 0) {
-      localStorage.removeItem("savedFAQQuestions")
+  const handleDeleteQuestion = async (id: string) => {
+    try {
+      await deleteFAQQuestion(id)
+      setSavedQuestions(savedQuestions.filter((q) => q.id !== id))
+      toast({
+        title: "질문이 삭제되었습니다",
+      })
+    } catch (error) {
+      console.error("Failed to delete question:", error)
+      toast({
+        title: "질문 삭제에 실패했습니다",
+        variant: "destructive",
+      })
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && searchQuery.trim() !== "") {
+    if (e.key === "Enter" && searchQuery.trim() !== "" && !isSaving) {
       handleSaveQuestion()
     }
   }
@@ -114,6 +135,7 @@ export default function FAQPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
+            disabled={isSaving}
             className="w-full pl-4 pr-12 py-3 rounded-full bg-white border-0 shadow-sm"
           />
           {searchQuery.trim() !== "" && (
@@ -121,7 +143,8 @@ export default function FAQPage() {
               variant="ghost"
               size="icon"
               onClick={handleSaveQuestion}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-violet-600 hover:text-violet-700"
+              disabled={isSaving}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-violet-600 hover:text-violet-700 disabled:opacity-50"
             >
               <Plus className="w-5 h-5" />
             </Button>
@@ -173,31 +196,35 @@ export default function FAQPage() {
         </div>
       </div>
 
-      {savedQuestions.length > 0 && (
-        <div className="px-4 py-4 border-t border-gray-200">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-medium text-gray-900">내가 저장한 질문</h3>
-            <div className="flex gap-3 text-xs">
-              <span className="flex items-center gap-1 text-amber-600">
-                <Clock className="w-3 h-3" /> 대기중 {pendingCount}
-              </span>
-              <span className="flex items-center gap-1 text-green-600">
-                <CheckCircle className="w-3 h-3" /> 답변완료 {answeredCount}
-              </span>
+      {isLoading ? (
+        <div className="px-4 py-8 text-center text-gray-500">질문을 불러오는 중...</div>
+      ) : (
+        savedQuestions.length > 0 && (
+          <div className="px-4 py-4 border-t border-gray-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-medium text-gray-900">내가 저장한 질문</h3>
+              <div className="flex gap-3 text-xs">
+                <span className="flex items-center gap-1 text-amber-600">
+                  <Clock className="w-3 h-3" /> 대기중 {pendingCount}
+                </span>
+                <span className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="w-3 h-3" /> 답변완료 {answeredCount}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {savedQuestions.map((sq) => (
+                <SavedQuestionItem
+                  key={sq.id}
+                  question={sq}
+                  isExpanded={expandedSavedId === sq.id}
+                  onToggle={() => setExpandedSavedId(expandedSavedId === sq.id ? null : sq.id)}
+                  onDelete={() => handleDeleteQuestion(sq.id)}
+                />
+              ))}
             </div>
           </div>
-          <div className="space-y-2">
-            {savedQuestions.map((sq) => (
-              <SavedQuestionItem
-                key={sq.id}
-                question={sq}
-                isExpanded={expandedSavedId === sq.id}
-                onToggle={() => setExpandedSavedId(expandedSavedId === sq.id ? null : sq.id)}
-                onDelete={() => handleDeleteQuestion(sq.id)}
-              />
-            ))}
-          </div>
-        </div>
+        )
       )}
     </div>
   )
@@ -240,7 +267,7 @@ function SavedQuestionItem({
   onToggle,
   onDelete,
 }: {
-  question: SavedQuestion
+  question: UserFAQQuestion
   isExpanded: boolean
   onToggle: () => void
   onDelete: () => void
@@ -270,7 +297,7 @@ function SavedQuestionItem({
             )}
           </div>
           <p className="text-sm text-gray-900">{question.question}</p>
-          <p className="text-xs text-gray-400 mt-1">{new Date(question.createdAt).toLocaleDateString("ko-KR")}</p>
+          <p className="text-xs text-gray-400 mt-1">{new Date(question.created_at).toLocaleDateString("ko-KR")}</p>
         </div>
         {question.status === "answered" ? (
           isExpanded ? (
@@ -290,12 +317,11 @@ function SavedQuestionItem({
           </button>
         )}
       </button>
-      {/* 답변완료 시 답변 내용 표시 */}
       {isExpanded && question.status === "answered" && question.answer && (
         <div className="px-4 pb-4 pt-0">
           <div className="bg-white p-3 rounded-lg border border-green-200">
             <p className="text-xs text-green-600 mb-1">
-              답변일: {question.answeredAt && new Date(question.answeredAt).toLocaleDateString("ko-KR")}
+              답변일: {question.answered_at && new Date(question.answered_at).toLocaleDateString("ko-KR")}
             </p>
             <p className="text-sm text-gray-700 leading-relaxed">{question.answer}</p>
           </div>
