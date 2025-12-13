@@ -65,8 +65,29 @@ export function StudyTimeCard({ period, onPeriodChange }: StudyTimeCardProps) {
   const totalMinutes = data.reduce((sum, p) => sum + p.minutes, 0)
   const dayCount = data.length || 1
   const avgMinutes = Math.round(totalMinutes / dayCount)
-  const maxMinutes = Math.max(...data.map((d) => d.minutes), 1)
+  const maxMinutes = data.reduce((max, d) => (Number.isFinite(d.minutes) ? Math.max(max, d.minutes) : max), 0)
   const { start, end } = getDateRange(period)
+  const chartWidth = 100
+  const chartHeight = 100
+  const hasValidMax = Number.isFinite(maxMinutes) && maxMinutes > 0
+
+  const points =
+    data.length === 0
+      ? "0.00,100.00"
+      : data
+          .map((point, index) => {
+            const n = data.length
+            const rawX = n === 1 ? 0 : (index / (n - 1)) * chartWidth
+            const safeX = Number.isFinite(rawX) ? rawX : 0
+            const value = Number.isFinite(point.minutes) ? point.minutes : 0
+            const ratio = hasValidMax ? value / maxMinutes : 0
+            const safeRatio = Number.isFinite(ratio) ? Math.min(Math.max(ratio, 0), 1) : 0
+            const rawY = chartHeight - safeRatio * chartHeight
+            const safeY = Number.isFinite(rawY) ? rawY : chartHeight
+
+            return `${safeX.toFixed(2)},${safeY.toFixed(2)}`
+          })
+          .join(" ")
 
   return (
     <div className="bg-white rounded-2xl shadow-sm px-4 py-3 space-y-3">
@@ -100,26 +121,7 @@ export function StudyTimeCard({ period, onPeriodChange }: StudyTimeCardProps) {
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
         >
-          <polyline
-            fill="none"
-            stroke="#818cf8"
-            strokeWidth="2"
-            vectorEffect="non-scaling-stroke"
-            points={
-              data.length === 0
-                ? "0,100"
-                : data
-                    .map((point, index) => {
-                      const n = data.length
-                      const x = n === 1 ? 50 : (index / (n - 1)) * 100
-                      const safeMax = Number.isFinite(maxMinutes) && maxMinutes > 0 ? maxMinutes : 1
-                      const rawY = 100 - (point.minutes / safeMax) * 100
-                      const y = Number.isFinite(rawY) ? rawY : 100
-                      return `${x.toFixed(2)},${y.toFixed(2)}`
-                    })
-                    .join(" ")
-            }
-          />
+          <polyline fill="none" stroke="#818cf8" strokeWidth="2" vectorEffect="non-scaling-stroke" points={points} />
         </svg>
       </div>
 

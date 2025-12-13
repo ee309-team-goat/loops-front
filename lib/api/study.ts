@@ -22,10 +22,19 @@ export interface StudyCard {
   example_sentences?: unknown[] | null
 }
 
-export interface StartSessionRequest {
+export interface StudyOverviewResponse {
+  new_cards_count: number
+  review_cards_count: number
+  total_available: number
+  due_cards?: unknown[]
+}
+
+export interface SessionStartRequest {
   new_cards_limit?: number
   review_cards_limit?: number
 }
+
+export type StartSessionRequest = SessionStartRequest
 
 export interface SessionStartResponse {
   session_id: string
@@ -93,7 +102,17 @@ export interface SessionCompleteResponse {
 }
 
 // API Functions
-export async function startSession(params: StartSessionRequest): Promise<SessionStartResponse> {
+export async function getStudyOverview(limit = 50): Promise<StudyOverviewResponse> {
+  const search = new URLSearchParams()
+  search.set("limit", String(limit))
+
+  return apiFetch<StudyOverviewResponse>(`/api/v1/study/overview?${search.toString()}`, {
+    method: "GET",
+    auth: true,
+  })
+}
+
+export async function startSession(params: SessionStartRequest): Promise<SessionStartResponse> {
   return apiFetch<SessionStartResponse>("/api/v1/study/session/start", {
     method: "POST",
     auth: true,

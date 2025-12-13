@@ -21,11 +21,17 @@ function joinUrl(baseUrl: string, path: string): string {
   // Remove trailing slash from baseUrl
   let base = baseUrl.replace(/\/+$/, "")
 
-  // Ensure path starts with /
-  const p = path.startsWith("/") ? path : `/${path}`
+  // Ensure path starts with a single /
+  const rawPath = path ?? ""
+  let p = rawPath.startsWith("/") ? rawPath : `/${rawPath}`
+  const queryIndex = p.search(/[?#]/)
+  const pathPart = queryIndex === -1 ? p : p.slice(0, queryIndex)
+  const suffix = queryIndex === -1 ? "" : p.slice(queryIndex)
+  const normalizedPath = pathPart.replace(/^\/+/, "/").replace(/\/{2,}/g, "/")
+  p = `${normalizedPath}${suffix}`
 
   // Prevent /api/api duplication: if base ends with /api and path starts with /api/
-  if (base.endsWith("/api") && p.startsWith("/api/")) {
+  if (base.endsWith("/api") && (p.startsWith("/api/") || p === "/api")) {
     base = base.slice(0, -4) // Remove trailing /api from base
   }
 

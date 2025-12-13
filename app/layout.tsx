@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/components/auth-provider"
 import { SettingsProvider } from "@/components/settings-provider"
+import { Toaster } from "sonner"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -50,6 +51,7 @@ export default function RootLayout({
         <AuthProvider>
           <SettingsProvider>{children}</SettingsProvider>
         </AuthProvider>
+        <Toaster richColors />
         <Analytics />
       </body>
     </html>

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { X, BookOpen, RefreshCw, ChevronDown, ChevronUp, Star, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -8,6 +9,8 @@ import { buildCourseSummary } from "@/lib/course-summary"
 import { MOCK_CATEGORIES } from "@/lib/mock-decks"
 import { deriveCounts } from "@/lib/review-ratio"
 import { cn } from "@/lib/utils"
+import { startSession, type SessionStartRequest } from "@/lib/api/study"
+import { toast } from "sonner"
 
 export type ModalStep = "today" | "extra"
 
@@ -41,6 +44,7 @@ export function StudyModal({
   todayRetryCount = 0,
 }: StudyModalProps) {
   const router = useRouter()
+  const [isStarting, setIsStarting] = useState(false)
   const {
     courseType,
     customSelectedDeckIds,
@@ -90,14 +94,27 @@ export function StudyModal({
     setTargetWordCount(newCount)
   }
 
+  const launchSession = async (payload: SessionStartRequest) => {
+    if (isStarting) return
+    setIsStarting(true)
+    try {
+      const res = await startSession(payload)
+      router.push(`/learn?sessionId=${res.session_id}`)
+      onClose()
+    } catch (err) {
+      console.debug("[StudyModal] startSession failed", err)
+      toast.error("학습 세션을 시작하지 못했습니다.", { description: "잠시 후 다시 시도해주세요." })
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
   const handleStartTodayStudy = () => {
-    router.push("/learn?mode=today")
-    onClose()
+    launchSession({ new_cards_limit: 10, review_cards_limit: 30 })
   }
 
   const handleStartExtraStudy = () => {
-    router.push("/learn?mode=extra")
-    onClose()
+    launchSession({ new_cards_limit: 20, review_cards_limit: 20 })
   }
 
   const StudyModeSelector = () => (
@@ -217,7 +234,11 @@ export function StudyModal({
 
             {/* CTA Buttons */}
             <div className="space-y-3">
-              <Button className="w-full py-6 bg-indigo-600 hover:bg-indigo-700" onClick={handleStartTodayStudy}>
+              <Button
+                className="w-full py-6 bg-indigo-600 hover:bg-indigo-700"
+                onClick={handleStartTodayStudy}
+                disabled={isStarting}
+              >
                 <BookOpen className="w-5 h-5 mr-2" />
                 오늘의 학습
               </Button>
@@ -305,7 +326,11 @@ export function StudyModal({
                   <ChevronUp className="w-5 h-5 text-indigo-600" />
                 </button>
               </div>
-              <Button className="flex-1 py-6 bg-indigo-600 hover:bg-indigo-700" onClick={handleStartExtraStudy}>
+              <Button
+                className="flex-1 py-6 bg-indigo-600 hover:bg-indigo-700"
+                onClick={handleStartExtraStudy}
+                disabled={isStarting}
+              >
                 <Star className="w-4 h-4 mr-2" />
                 추가 학습
               </Button>
