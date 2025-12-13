@@ -10,7 +10,7 @@ import { MOCK_CATEGORIES } from "@/lib/mock-decks"
 import { deriveCounts } from "@/lib/review-ratio"
 import { cn } from "@/lib/utils"
 import { startSession, type SessionStartRequest } from "@/lib/api/study"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/use-toast"
 
 export type ModalStep = "today" | "extra"
 
@@ -103,7 +103,10 @@ export function StudyModal({
       onClose()
     } catch (err) {
       console.debug("[StudyModal] startSession failed", err)
-      toast.error("학습 세션을 시작하지 못했습니다.", { description: "잠시 후 다시 시도해주세요." })
+      toast({
+        title: "학습 세션을 시작하지 못했습니다.",
+        description: "잠시 후 다시 시도해주세요.",
+      })
     } finally {
       setIsStarting(false)
     }

@@ -10,7 +10,7 @@ import { StudyModal, type ModalStep } from "@/components/study-modal"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getStreak, getTodayProgress, type StreakRead, type TodayProgressRead } from "@/lib/api/profile"
 import { getStudyOverview, type StudyOverviewResponse } from "@/lib/api/study"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/use-toast"
 
 export default function DashboardPage() {
   const [isStudyModalOpen, setIsStudyModalOpen] = useState(false)
@@ -64,7 +64,8 @@ export default function DashboardPage() {
 
       if (hasError && !errorToastShownRef.current) {
         errorToastShownRef.current = true
-        toast.error("일부 데이터 로딩 실패", {
+        toast({
+          title: "일부 데이터 로딩 실패",
           description: "일부 학습 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
         })
       }
