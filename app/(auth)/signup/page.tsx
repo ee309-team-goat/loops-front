@@ -33,6 +33,7 @@ export default function SignupPage() {
 
     try {
       await register(email, name, password)
+      localStorage.setItem("signupNickname", name)
       router.push("/dashboard")
     } catch (err) {
       console.warn("[Auth] Register error:", err)

@@ -98,6 +98,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       user: response.user,
     }
     saveAuth(payload)
+    if (username) {
+      localStorage.setItem("signupNickname", username)
+    }
     // State will be updated via AUTH_CHANGED_EVENT listener
   }, [])
 

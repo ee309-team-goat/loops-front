@@ -57,13 +57,20 @@ function getLocalNickname() {
   if (typeof window === "undefined") return null
   const legacy = localStorage.getItem(LEGACY_NICKNAME_KEY)
   const current = localStorage.getItem(LOCAL_NICKNAME_KEY)
-  if (!current && legacy && !isBannedName(legacy)) {
-    localStorage.setItem(LOCAL_NICKNAME_KEY, legacy)
-    return legacy
+  if (!current && legacy) {
+    if (!isBannedName(legacy)) {
+      localStorage.setItem(LOCAL_NICKNAME_KEY, legacy)
+      return legacy
+    }
+    localStorage.removeItem(LEGACY_NICKNAME_KEY)
   }
 
   if (legacy && isBannedName(legacy)) {
     localStorage.removeItem(LEGACY_NICKNAME_KEY)
+  }
+  if (current && isBannedName(current)) {
+    localStorage.removeItem(LOCAL_NICKNAME_KEY)
+    return null
   }
   return current
 }
@@ -75,7 +82,10 @@ function deriveDisplayName(profile: MeProfile | null, fallback = "사용자") {
     const trimmed = typeof name === "string" ? name.trim() : ""
     if (trimmed && !isBannedName(trimmed)) return trimmed
   }
-  if (localNick && localNick.trim() && !isBannedName(localNick)) return localNick.trim()
+  if (localNick) {
+    const trimmedLocal = localNick.trim()
+    if (trimmedLocal && !isBannedName(trimmedLocal)) return trimmedLocal
+  }
   const email = (profile as { email?: string } | null | undefined)?.email
   if (email && typeof email === "string" && email.includes("@")) {
     const prefix = email.split("@")[0]?.trim()
