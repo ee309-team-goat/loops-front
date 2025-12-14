@@ -9,11 +9,13 @@ interface ApiFetchOptions extends Omit<RequestInit, "body"> {
 export class ApiError extends Error {
   status: number
   data: unknown
-  constructor(message: string, status: number, data: unknown) {
+  bodyText?: string
+  constructor(message: string, status: number, data: unknown, bodyText?: string) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.data = data
+    this.bodyText = bodyText
   }
 }
 
@@ -40,12 +42,14 @@ function joinUrl(baseUrl: string, path: string): string {
 
 const loggedUrls = new Set<string>()
 
-async function parseErrorResponse(res: Response): Promise<{ message: string; data: unknown }> {
+async function parseErrorResponse(res: Response): Promise<{ message: string; data: unknown; bodyText?: string }> {
   let data: unknown = null
   let message = `${res.status} ${res.statusText}`
+  let rawText: string | undefined
 
   try {
     const text = await res.text()
+    rawText = text
     if (!text) return { message, data }
 
     // Try to parse as JSON
@@ -68,7 +72,7 @@ async function parseErrorResponse(res: Response): Promise<{ message: string; dat
     // Could not read response body
   }
 
-  return { message, data }
+  return { message, data, bodyText: rawText }
 }
 
 let isRefreshing = false
@@ -170,7 +174,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   }
 
   if (!res.ok) {
-    const { message, data } = await parseErrorResponse(res)
+    const { message, data, bodyText } = await parseErrorResponse(res)
     if (!loggedUrls.has(url)) {
       loggedUrls.add(url)
       console.debug("[apiFetch] Request failed", {
@@ -179,7 +183,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
         contentType: res.headers.get("content-type"),
       })
     }
-    throw new ApiError(message, res.status, data)
+    throw new ApiError(message, res.status, data, bodyText)
   }
 
   // Handle empty responses

@@ -7,6 +7,8 @@ import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X } from "lucide-re
 import { useRouter } from "next/navigation"
 import { useMe } from "@/features/me/useMe"
 
+const LOCAL_NICKNAME_KEY = "signupNickname"
+
 export default function ProfilePage() {
   const router = useRouter()
   const { displayName, profile } = useMe()
@@ -45,6 +47,7 @@ export default function ProfilePage() {
     if (editNicknameValue.trim()) {
       setNickname(editNicknameValue.trim())
       localStorage.setItem("userNickname", editNicknameValue.trim())
+      localStorage.setItem(LOCAL_NICKNAME_KEY, editNicknameValue.trim())
     }
     setIsEditingNickname(false)
   }

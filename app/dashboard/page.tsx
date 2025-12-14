@@ -141,7 +141,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                안녕하세요, <UserDisplayName withSuffix /> 👋
+                안녕하세요, <UserDisplayName withSuffix />
               </h1>
               <p className="text-gray-500">오늘도 목표를 향해 달려볼까요?</p>
             </div>
