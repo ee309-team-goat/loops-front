@@ -66,9 +66,7 @@ interface ModeProps extends SheetHandlers {
   onUserAnswer?: (ans: string | null) => void
 }
 
-interface TypingModeProps extends ModeProps {
-  typingCard: TypingCard
-}
+interface TypingModeProps extends ModeProps {}
 
 function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
   return (
@@ -341,7 +339,9 @@ function FlashcardMode({
 
       {isFlipped && (
         <div className="shrink-0 p-4 pb-8 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-          <RatingButtons onRate={onRate} />
+          <Button className="w-full py-6 text-lg font-medium" onClick={() => onRate(FSRS_RATING.GOOD)}>
+            제출하고 다음으로
+          </Button>
         </div>
       )}
     </>
@@ -516,12 +516,13 @@ function MultipleChoiceMode({
 }
 
 function SentenceTypingMode({
-  typingCard,
+  card,
   onRate,
   openWrongNotes,
   openAiQuestion,
   openWordInfo,
   openPronunciation,
+  onUserAnswer,
 }: TypingModeProps) {
   const [typedSuffix, setTypedSuffix] = useState("")
   const [status, setStatus] = useState<"idle" | "correct" | "incorrect">("idle")
@@ -533,19 +534,36 @@ function SentenceTypingMode({
   const [showError, setShowError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const answer = typingCard.word
+  const answer = card.english_word || card.korean_meaning
 
   const hintPrefix = answer.slice(0, revealedCount)
   const fullInput = hintPrefix + typedSuffix
   const normalizedAnswer = answer.trim().toLowerCase()
 
   const currentExample = useMemo(() => {
-    if (typingCard.exampleCandidates && typingCard.exampleCandidates.length > 0) {
-      const idx = exampleIndex % typingCard.exampleCandidates.length
-      return typingCard.exampleCandidates[idx]
+    if (typeof card.question === "object" && card.question !== null) {
+      if ("exampleCandidates" in card.question && Array.isArray(card.question.exampleCandidates)) {
+        const candidates = card.question.exampleCandidates as Array<{ koSentence: string; enSentenceWithBlank: string }>
+        if (candidates.length > 0) {
+          const idx = exampleIndex % candidates.length
+          return candidates[idx]
+        }
+      }
+      if ("koSentence" in card.question && "enSentenceWithBlank" in card.question) {
+        return {
+          koSentence: (card.question as { koSentence: string }).koSentence,
+          enSentenceWithBlank: (card.question as { enSentenceWithBlank: string }).enSentenceWithBlank,
+        }
+      }
+      if ("sentence" in card.question && typeof card.question.sentence === "string") {
+        return { koSentence: card.korean_meaning, enSentenceWithBlank: card.question.sentence }
+      }
     }
-    return { koSentence: typingCard.koSentence, enSentenceWithBlank: typingCard.enSentenceWithBlank }
-  }, [typingCard, exampleIndex])
+    if (typeof card.question === "string") {
+      return { koSentence: card.korean_meaning, enSentenceWithBlank: card.question }
+    }
+    return { koSentence: card.korean_meaning, enSentenceWithBlank: card.english_word || "" }
+  }, [card, exampleIndex])
 
   const evaluateInput = useCallback(
     (nextFullInput: string) => {
@@ -577,19 +595,11 @@ function SentenceTypingMode({
       setStatus("incorrect")
       setShowError(true)
 
-      // Save wrong note only on first incorrect
       if (!wasIncorrect) {
         setWasIncorrect(true)
-        saveWrongNote({
-          word: typingCard.word,
-          userAnswer: nextFullInput.trim(),
-          correctAnswer: answer,
-          koSentence: currentExample.koSentence,
-          enSentenceWithBlank: currentExample.enSentenceWithBlank,
-        })
       }
     },
-    [normalizedAnswer, wasIncorrect, typingCard.word, answer, currentExample],
+    [normalizedAnswer, wasIncorrect, answer, currentExample],
   )
 
   useEffect(() => {
@@ -602,7 +612,7 @@ function SentenceTypingMode({
     setExampleIndex(0)
     setShowError(false)
     inputRef.current?.focus()
-  }, [typingCard])
+  }, [card])
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -615,6 +625,7 @@ function SentenceTypingMode({
     if (revealedCount === 0) {
       setTypedSuffix(value)
       evaluateInput(value)
+      onUserAnswer?.(value)
       return
     }
 
@@ -624,6 +635,7 @@ function SentenceTypingMode({
     if (value.length <= prefix.length) {
       setTypedSuffix("")
       evaluateInput(prefix)
+      onUserAnswer?.(prefix)
       return
     }
 
@@ -631,12 +643,15 @@ function SentenceTypingMode({
     if (value.startsWith(prefix)) {
       const nextSuffix = value.slice(prefix.length)
       setTypedSuffix(nextSuffix)
-      evaluateInput(prefix + nextSuffix)
+      const nextFull = prefix + nextSuffix
+      evaluateInput(nextFull)
+      onUserAnswer?.(nextFull)
       return
     }
 
     // User modified prefix area - ignore (keep current suffix), still evaluate
     evaluateInput(fullInput)
+    onUserAnswer?.(fullInput)
   }
 
   const handleHint = () => {
@@ -665,8 +680,11 @@ function SentenceTypingMode({
   }
 
   const handleOtherExample = () => {
-    if (typingCard.exampleCandidates && typingCard.exampleCandidates.length > 1) {
-      setExampleIndex((prev) => prev + 1)
+    if (typeof card.question === "object" && card.question !== null && "exampleCandidates" in card.question) {
+      const candidates = card.question.exampleCandidates as Array<{ koSentence: string; enSentenceWithBlank: string }>
+      if (Array.isArray(candidates) && candidates.length > 1) {
+        setExampleIndex((prev) => prev + 1)
+      }
     }
   }
 
@@ -713,7 +731,12 @@ function SentenceTypingMode({
     )
   }
 
-  const hasOtherExamples = typingCard.exampleCandidates && typingCard.exampleCandidates.length > 1
+  const hasOtherExamples =
+    typeof card.question === "object" &&
+    card.question !== null &&
+    "exampleCandidates" in card.question &&
+    Array.isArray(card.question.exampleCandidates) &&
+    card.question.exampleCandidates.length > 1
 
   const showInputUI = status !== "correct" && !showAnswer
   const showActionBar = status === "correct" || showAnswer
@@ -723,12 +746,7 @@ function SentenceTypingMode({
       <div className="flex-1 flex flex-col overflow-y-auto p-4 bg-sky-50">
         <div className="bg-sky-100 rounded-2xl p-4 mb-4">
           <p className="text-lg text-gray-800 leading-relaxed">
-            {currentExample.koSentence.split(typingCard.definition).map((part, i, arr) => (
-              <span key={i}>
-                {part}
-                {i < arr.length - 1 && <span className="text-indigo-600 font-bold">{typingCard.definition}</span>}
-              </span>
-            ))}
+            {currentExample.koSentence}
           </p>
         </div>
 
@@ -739,8 +757,6 @@ function SentenceTypingMode({
         )}
 
         <div className="bg-white rounded-2xl p-6 shadow-sm mb-4">{renderSentence()}</div>
-
-        <p className="text-xs text-gray-400 text-center mb-4">[어휘 출처] 능률 VOCA 어원편, DAY 17</p>
       </div>
 
       <div className="shrink-0 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
