@@ -6,6 +6,7 @@ import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { apiFetch } from "@/lib/api/http"
+import { UserDisplayName } from "@/components/user-display-name"
 
 export default function MyPage() {
   const router = useRouter()
@@ -70,7 +71,9 @@ export default function MyPage() {
     <div className="min-h-screen bg-gray-100 pb-20">
       {/* Header */}
       <div className="bg-white px-4 py-4 flex items-center justify-between border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-900">me</h1>
+        <h1 className="text-xl font-bold text-gray-900">
+          <UserDisplayName />
+        </h1>
         <Button variant="ghost" size="icon">
           <Bell className="w-5 h-5 text-yellow-500 fill-yellow-500" />
         </Button>

@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ChevronLeft, Pencil, Clock, Flame, Calendar, Check, X } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useMe } from "@/features/me/useMe"
 
 export default function ProfilePage() {
   const router = useRouter()
-  const [nickname, setNickname] = useState("me")
+  const { displayName, profile } = useMe()
+  const [nickname, setNickname] = useState("사용자")
   const [isEditingNickname, setIsEditingNickname] = useState(false)
   const [editNicknameValue, setEditNicknameValue] = useState("")
 
@@ -21,12 +23,18 @@ export default function ProfilePage() {
     if (savedNickname) {
       setNickname(savedNickname)
     }
+    if (!savedNickname) {
+      const derived = profile?.nickname || profile?.name || profile?.username || displayName
+      if (derived) {
+        setNickname(derived)
+      }
+    }
 
     const savedMotto = localStorage.getItem("userMotto")
     if (savedMotto) {
       setMotto(savedMotto)
     }
-  }, [])
+  }, [profile, displayName])
 
   const handleEditNickname = () => {
     setEditNicknameValue(nickname)

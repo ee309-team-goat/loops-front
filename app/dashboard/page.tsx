@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { getStreak, getTodayProgress, type StreakRead, type TodayProgressRead } from "@/lib/api/profile"
 import { getStudyOverview, type StudyOverviewResponse } from "@/lib/api/study"
 import { toast } from "@/components/ui/use-toast"
+import { UserDisplayName } from "@/components/user-display-name"
 
 export default function DashboardPage() {
   const [isStudyModalOpen, setIsStudyModalOpen] = useState(false)
@@ -139,7 +140,9 @@ export default function DashboardPage() {
         <div className="bg-white p-6 pb-8 rounded-b-3xl shadow-sm space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">안녕하세요, 준호님! 👋</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                안녕하세요, <UserDisplayName withSuffix /> 👋
+              </h1>
               <p className="text-gray-500">오늘도 목표를 향해 달려볼까요?</p>
             </div>
             <Link href="/notifications">
