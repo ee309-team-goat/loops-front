@@ -63,7 +63,8 @@ function deriveDisplayName(profile: MeProfile | null, fallback = "사용자") {
   const localNick = getLocalNickname()
   if (profile) {
     const name = profile.nickname || profile.name || profile.username
-    if (name && name.trim()) return name
+    const trimmed = typeof name === "string" ? name.trim() : ""
+    if (trimmed && trimmed.toLowerCase() !== "me") return trimmed
   }
   if (localNick && localNick.trim()) return localNick
   if (profile?.email && profile.email.includes("@")) {

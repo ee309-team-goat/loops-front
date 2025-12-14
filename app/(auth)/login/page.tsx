@@ -58,7 +58,7 @@ export default function LoginPage() {
 
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full space-y-8">
         <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold">다시 오셨군요! 👋</h1>
+          <h1 className="text-2xl font-bold">다시 오셨군요!</h1>
           <p className="text-gray-500">오늘의 학습 목표를 달성해볼까요?</p>
         </div>
 

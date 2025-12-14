@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api/http"
+import { ApiError } from "@/lib/api/http"
 
 export interface MeProfile {
   id?: string
@@ -15,7 +16,7 @@ async function tryEndpoint(path: string): Promise<MeProfile | null> {
   try {
     return await apiFetch<MeProfile>(path, { auth: true })
   } catch (err) {
-    const status = (err as { status?: number }).status
+    const status = err instanceof ApiError ? err.status : (err as any)?.status ?? (err as any)?.response?.status
     if (status === 401 || status === 403) {
       throw err
     }
