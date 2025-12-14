@@ -66,9 +66,7 @@ interface ModeProps extends SheetHandlers {
   onUserAnswer?: (ans: string | null) => void
 }
 
-interface TypingModeProps extends ModeProps {
-  typingCard: TypingCard
-}
+interface TypingModeProps extends ModeProps {}
 
 function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
   return (
@@ -341,7 +339,9 @@ function FlashcardMode({
 
       {isFlipped && (
         <div className="shrink-0 p-4 pb-8 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-          <RatingButtons onRate={onRate} />
+          <Button className="w-full py-6 text-lg font-medium" onClick={() => onRate(FSRS_RATING.GOOD)}>
+            제출하고 다음으로
+          </Button>
         </div>
       )}
     </>
@@ -516,12 +516,13 @@ function MultipleChoiceMode({
 }
 
 function SentenceTypingMode({
-  typingCard,
+  card,
   onRate,
   openWrongNotes,
   openAiQuestion,
   openWordInfo,
   openPronunciation,
+  onUserAnswer,
 }: TypingModeProps) {
   const [typedSuffix, setTypedSuffix] = useState("")
   const [status, setStatus] = useState<"idle" | "correct" | "incorrect">("idle")
@@ -533,19 +534,29 @@ function SentenceTypingMode({
   const [showError, setShowError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const answer = typingCard.word
+  const answer = card.english_word || card.korean_meaning
 
   const hintPrefix = answer.slice(0, revealedCount)
   const fullInput = hintPrefix + typedSuffix
   const normalizedAnswer = answer.trim().toLowerCase()
 
   const currentExample = useMemo(() => {
-    if (typingCard.exampleCandidates && typingCard.exampleCandidates.length > 0) {
-      const idx = exampleIndex % typingCard.exampleCandidates.length
-      return typingCard.exampleCandidates[idx]
+    const exampleCandidates =
+      typeof card.question === "object" && "exampleCandidates" in card.question
+        ? (card.question as any).exampleCandidates
+        : null
+    if (exampleCandidates && Array.isArray(exampleCandidates) && exampleCandidates.length > 0) {
+      const idx = exampleIndex % exampleCandidates.length
+      return exampleCandidates[idx]
     }
-    return { koSentence: typingCard.koSentence, enSentenceWithBlank: typingCard.enSentenceWithBlank }
-  }, [typingCard, exampleIndex])
+    if (typeof card.question === "object" && "koSentence" in card.question && "enSentenceWithBlank" in card.question) {
+      return {
+        koSentence: (card.question as any).koSentence,
+        enSentenceWithBlank: (card.question as any).enSentenceWithBlank,
+      }
+    }
+    return { koSentence: card.korean_meaning, enSentenceWithBlank: card.question as string }
+  }, [card, exampleIndex])
 
   const evaluateInput = useCallback(
     (nextFullInput: string) => {
@@ -615,6 +626,7 @@ function SentenceTypingMode({
     if (revealedCount === 0) {
       setTypedSuffix(value)
       evaluateInput(value)
+      onUserAnswer?.(value)
       return
     }
 
@@ -624,6 +636,7 @@ function SentenceTypingMode({
     if (value.length <= prefix.length) {
       setTypedSuffix("")
       evaluateInput(prefix)
+      onUserAnswer?.(prefix)
       return
     }
 
@@ -631,12 +644,15 @@ function SentenceTypingMode({
     if (value.startsWith(prefix)) {
       const nextSuffix = value.slice(prefix.length)
       setTypedSuffix(nextSuffix)
-      evaluateInput(prefix + nextSuffix)
+      const nextFull = prefix + nextSuffix
+      evaluateInput(nextFull)
+      onUserAnswer?.(nextFull)
       return
     }
 
     // User modified prefix area - ignore (keep current suffix), still evaluate
     evaluateInput(fullInput)
+    onUserAnswer?.(fullInput)
   }
 
   const handleHint = () => {
@@ -665,7 +681,11 @@ function SentenceTypingMode({
   }
 
   const handleOtherExample = () => {
-    if (typingCard.exampleCandidates && typingCard.exampleCandidates.length > 1) {
+    const exampleCandidates =
+      typeof card.question === "object" && "exampleCandidates" in card.question
+        ? (card.question as any).exampleCandidates
+        : null
+    if (exampleCandidates && Array.isArray(exampleCandidates) && exampleCandidates.length > 1) {
       setExampleIndex((prev) => prev + 1)
     }
   }
