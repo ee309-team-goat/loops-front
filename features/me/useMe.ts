@@ -5,6 +5,7 @@ import { create } from "zustand"
 import { getMeProfile, type MeProfile } from "@/lib/api/me"
 
 const LOCAL_NICKNAME_KEY = "signupNickname"
+const LEGACY_NICKNAME_KEY = "userNickname"
 
 type LoadOptions = { force?: boolean }
 
@@ -49,13 +50,19 @@ const useMeStore = create<MeState>((set, get) => ({
 
 function getLocalNickname() {
   if (typeof window === "undefined") return null
-  return localStorage.getItem(LOCAL_NICKNAME_KEY)
+  const legacy = localStorage.getItem(LEGACY_NICKNAME_KEY)
+  const current = localStorage.getItem(LOCAL_NICKNAME_KEY)
+  if (!current && legacy) {
+    localStorage.setItem(LOCAL_NICKNAME_KEY, legacy)
+    return legacy
+  }
+  return current
 }
 
 function deriveDisplayName(profile: MeProfile | null, fallback = "사용자") {
   const localNick = getLocalNickname()
   if (profile) {
-    const name = profile.name || profile.nickname || profile.username
+    const name = profile.nickname || profile.name || profile.username
     if (name && name.trim()) return name
   }
   if (localNick && localNick.trim()) return localNick
@@ -74,7 +81,7 @@ export function useMe() {
 
   const displayName = deriveDisplayName(profile)
 
-  const refresh = () => load({ force: true })
+  const refresh = (options?: LoadOptions) => load({ force: options?.force ?? true })
 
   return {
     profile,
