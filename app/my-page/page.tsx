@@ -5,14 +5,11 @@ import { ChevronRight, Sun, Bell, Volume2, Star, BookOpen, HelpCircle, Globe, In
 import { BottomTabNav } from "@/components/bottom-tab-nav"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
-import { apiFetch } from "@/lib/api/http"
 import { UserDisplayName } from "@/components/user-display-name"
 
 export default function MyPage() {
   const router = useRouter()
   const { isAuthed, logout } = useAuth()
-  const [authTestResult, setAuthTestResult] = useState<string | null>(null)
-  const [authTestLoading, setAuthTestLoading] = useState(false)
 
   const settingsGroups = [
     {
@@ -49,22 +46,6 @@ export default function MyPage() {
   const handleLogout = async () => {
     await logout()
     router.push("/login")
-  }
-
-  const handleAuthTest = async () => {
-    setAuthTestLoading(true)
-    setAuthTestResult(null)
-    try {
-      const result = await apiFetch<{ id: string; email: string }>("/api/v1/auth/me", {
-        method: "GET",
-        auth: true,
-      })
-      setAuthTestResult(`Success: ${JSON.stringify(result, null, 2)}`)
-    } catch (err) {
-      setAuthTestResult(`Error: ${err instanceof Error ? err.message : "Unknown error"}`)
-    } finally {
-      setAuthTestLoading(false)
-    }
   }
 
   return (
@@ -139,30 +120,6 @@ export default function MyPage() {
             </div>
           </div>
         )}
-
-        <div className="bg-white rounded-2xl overflow-hidden p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAuthTest}
-              disabled={authTestLoading}
-              className="text-xs bg-transparent"
-            >
-              {authTestLoading ? "테스트 중..." : "Auth Me 테스트"}
-            </Button>
-            {authTestResult && (
-              <button onClick={() => setAuthTestResult(null)} className="text-xs text-gray-400 hover:text-gray-600">
-                Clear
-              </button>
-            )}
-          </div>
-          {authTestResult && (
-            <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto max-h-24 text-gray-600">
-              {authTestResult}
-            </pre>
-          )}
-        </div>
 
         {/* Settings Sections */}
         {settingsGroups.map((group) => (
