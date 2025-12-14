@@ -851,10 +851,12 @@ export default function LearnPage() {
   const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
   const [wordInfoOpen, setWordInfoOpen] = useState(false)
   const [pronunciationOpen, setPronunciationOpen] = useState(false)
+  const unknownModeWarnedRef = useRef(false)
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
 
-  const quizType: QuizType = studyMode === "mcq" ? "word_to_meaning" : "word_to_meaning"
+  const quizType: QuizType =
+    studyMode === "mcq" ? "word_to_meaning" : studyMode === "flip" ? "word_to_meaning" : "word_to_meaning"
 
   useEffect(() => {
     if (studyMode === "typing") {
@@ -920,12 +922,13 @@ export default function LearnPage() {
 
     try {
       let answer: string
-      if (rating === FSRS_RATING.AGAIN) {
-        setPendingUserAnswer(null)
-        answer = "__WRONG__"
-      } else if (studyMode === "mcq" && !pendingUserAnswer) {
+      const allowMcqWithoutSelection = studyMode === "mcq" && (!currentCard.options || currentCard.options.length === 0)
+
+      if (studyMode === "mcq" && !pendingUserAnswer && !allowMcqWithoutSelection) {
         return
-      } else if (pendingUserAnswer) {
+      }
+
+      if (pendingUserAnswer) {
         answer = pendingUserAnswer
         setPendingUserAnswer(null)
       } else {
@@ -936,7 +939,7 @@ export default function LearnPage() {
         } else if (currentCard.quiz_type === "cloze" && typeof currentCard.question === "object") {
           answer = currentCard.question.answer
         } else {
-          answer = currentCard.english_word
+          answer = currentCard.english_word || currentCard.korean_meaning
         }
       }
 
@@ -949,9 +952,11 @@ export default function LearnPage() {
         session_id: sessionId,
         card_id: currentCard.id,
         answer,
+        quiz_type: currentCard.quiz_type,
+        response_time_ms: null,
       })
 
-      if (!answerResponse.is_correct) {
+      if (!answerResponse.is_correct && studyMode !== "flip") {
         saveWrongNote({
           word: currentCard.english_word,
           meaning: currentCard.korean_meaning,
@@ -1123,6 +1128,16 @@ export default function LearnPage() {
 
         {studyMode === "flip" && currentCard && <FlashcardMode {...modeProps} />}
         {studyMode === "mcq" && currentCard && <MultipleChoiceMode {...modeProps} />}
+        {studyMode !== "flip" && studyMode !== "mcq" && (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center space-y-4 max-w-md">
+              <div className="text-6xl">⚠️</div>
+              <h2 className="text-xl font-bold text-gray-900">지원되지 않는 학습 모드입니다</h2>
+              <p className="text-gray-600">홈으로 돌아가 다시 시도해주세요.</p>
+              <Button onClick={() => router.push("/dashboard")}>홈으로</Button>
+            </div>
+          </div>
+        )}
 
         <WrongNotesSheet open={wrongNotesOpen} onOpenChange={setWrongNotesOpen} />
         <PlaceholderSheet open={aiQuestionOpen} onOpenChange={setAiQuestionOpen} title="AI 질문 답변" />
