@@ -859,11 +859,6 @@ export default function LearnPage() {
     studyMode === "mcq" ? "word_to_meaning" : studyMode === "flip" ? "word_to_meaning" : "word_to_meaning"
 
   useEffect(() => {
-    if (studyMode === "typing") {
-      setIsLoadingSession(false)
-      return
-    }
-
     const initSession = async () => {
       try {
         const urlSessionId = searchParams.get("sessionId")
@@ -990,25 +985,6 @@ export default function LearnPage() {
     router.push("/dashboard")
   }
 
-  if (studyMode === "typing") {
-    return (
-      <AuthRequired>
-        <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-purple-50">
-          <div className="flex items-center justify-center flex-1 p-6">
-            <div className="text-center space-y-4 max-w-md">
-              <div className="text-6xl">🚧</div>
-              <h2 className="text-2xl font-bold text-gray-900">타이핑 모드 준비 중</h2>
-              <p className="text-gray-600">타이핑 모드는 현재 개발 중입니다. 잠시만 기다려주세요!</p>
-              <Button onClick={() => router.push("/dashboard")} className="mt-4">
-                홈으로 돌아가기
-              </Button>
-            </div>
-          </div>
-        </div>
-      </AuthRequired>
-    )
-  }
-
   if (isLoadingSession) {
     return (
       <AuthRequired>
@@ -1128,7 +1104,8 @@ export default function LearnPage() {
 
         {studyMode === "flip" && currentCard && <FlashcardMode {...modeProps} />}
         {studyMode === "mcq" && currentCard && <MultipleChoiceMode {...modeProps} />}
-        {studyMode !== "flip" && studyMode !== "mcq" && (
+        {studyMode === "typing" && currentCard && <SentenceTypingMode {...(modeProps as TypingModeProps)} />}
+        {studyMode !== "flip" && studyMode !== "mcq" && studyMode !== "typing" && (
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="text-center space-y-4 max-w-md">
               <div className="text-6xl">⚠️</div>
