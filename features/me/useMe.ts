@@ -7,6 +7,11 @@ import { getMeProfile, type MeProfile } from "@/lib/api/me"
 const LOCAL_NICKNAME_KEY = "signupNickname"
 const LEGACY_NICKNAME_KEY = "userNickname"
 
+function isBannedName(value: string | null | undefined) {
+  if (!value || typeof value !== "string") return false
+  return value.trim().toLowerCase() === "me"
+}
+
 type LoadOptions = { force?: boolean }
 
 type MeState = {
@@ -52,9 +57,13 @@ function getLocalNickname() {
   if (typeof window === "undefined") return null
   const legacy = localStorage.getItem(LEGACY_NICKNAME_KEY)
   const current = localStorage.getItem(LOCAL_NICKNAME_KEY)
-  if (!current && legacy) {
+  if (!current && legacy && !isBannedName(legacy)) {
     localStorage.setItem(LOCAL_NICKNAME_KEY, legacy)
     return legacy
+  }
+
+  if (legacy && isBannedName(legacy)) {
+    localStorage.removeItem(LEGACY_NICKNAME_KEY)
   }
   return current
 }
@@ -64,11 +73,13 @@ function deriveDisplayName(profile: MeProfile | null, fallback = "사용자") {
   if (profile) {
     const name = profile.nickname || profile.name || profile.username
     const trimmed = typeof name === "string" ? name.trim() : ""
-    if (trimmed && trimmed.toLowerCase() !== "me") return trimmed
+    if (trimmed && !isBannedName(trimmed)) return trimmed
   }
-  if (localNick && localNick.trim()) return localNick
-  if (profile?.email && profile.email.includes("@")) {
-    return profile.email.split("@")[0] || fallback
+  if (localNick && localNick.trim() && !isBannedName(localNick)) return localNick.trim()
+  const email = (profile as { email?: string } | null | undefined)?.email
+  if (email && typeof email === "string" && email.includes("@")) {
+    const prefix = email.split("@")[0]?.trim()
+    if (prefix && !isBannedName(prefix)) return prefix
   }
   return fallback
 }
