@@ -66,7 +66,7 @@ interface ModeProps extends SheetHandlers {
   onUserAnswer?: (ans: string | null) => void
 }
 
-interface TypingModeProps extends ModeProps {}
+interface TypingModeProps extends ModeProps { }
 
 function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
   return (
@@ -541,6 +541,7 @@ function SentenceTypingMode({
   const normalizedAnswer = answer.trim().toLowerCase()
 
   const currentExample = useMemo(() => {
+
     if (typeof card.question === "object" && card.question !== null) {
       if ("exampleCandidates" in card.question && Array.isArray(card.question.exampleCandidates)) {
         const candidates = card.question.exampleCandidates as Array<{ koSentence: string; enSentenceWithBlank: string }>
@@ -680,11 +681,13 @@ function SentenceTypingMode({
   }
 
   const handleOtherExample = () => {
+
     if (typeof card.question === "object" && card.question !== null && "exampleCandidates" in card.question) {
       const candidates = card.question.exampleCandidates as Array<{ koSentence: string; enSentenceWithBlank: string }>
       if (Array.isArray(candidates) && candidates.length > 1) {
         setExampleIndex((prev) => prev + 1)
       }
+
     }
   }
 
