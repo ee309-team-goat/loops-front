@@ -33,6 +33,7 @@ import {
   type SessionCompleteResponse,
   type QuizType,
 } from "@/lib/api/study"
+import { toast } from "@/components/ui/use-toast"
 
 const FSRS_RATING = {
   AGAIN: 1,
@@ -875,12 +876,16 @@ export default function LearnPage() {
   const [pronunciationOpen, setPronunciationOpen] = useState(false)
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
+  const retryPayloadRef = useRef<{ payload: { session_id: string; card_id: number; answer: string }; rating: number } | null>(
+    null,
+  )
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const quizType: QuizType =
     studyMode === "mcq"
       ? "word_to_meaning"
       : studyMode === "typing"
-        ? "meaning_to_word"
+        ? "cloze"
         : "word_to_meaning"
 
   useEffect(() => {
@@ -937,48 +942,109 @@ export default function LearnPage() {
       ? `${remainingCount}문제를 풀어야 연속 학습을 달성할 수 있어요!`
       : "지금 나가도 오늘 목표는 이미 달성했어요!"
 
-  const buildTypingView = (card: StudyCard): TypingViewModel => {
-    const answer = (card.english_word || card.korean_meaning || "").trim()
-    let koSentence = card.korean_meaning || ""
-    let enSentenceWithBlank = ""
-    let explanation: string | null = null
-    let exampleCandidates: Array<{ koSentence: string; enSentenceWithBlank: string }> | undefined
+  type SubmitJob = {
+    payload: { session_id: string; card_id: number; answer: string }
+    rating: number
+    card: StudyCard
+  }
 
-    const ensureBlank = (text: string) => {
+  const runSubmission = async (job: SubmitJob) => {
+    const answerResponse = await submitAnswer(job.payload)
+
+    setStudiedCount((prev) => prev + 1)
+    if (job.rating !== FSRS_RATING.AGAIN) {
+      setCorrectCount((prev) => prev + 1)
+    }
+
+    if (!answerResponse.is_correct && studyMode !== "flip") {
+      saveWrongNote({
+        word: job.card.english_word,
+        meaning: job.card.korean_meaning,
+        userAnswer: answerResponse.user_answer,
+      })
+    }
+
+    const cardResponse = await getNextCard(job.payload.session_id, quizType)
+
+    if (!cardResponse.card || cardResponse.cards_remaining === 0) {
+      const complete = await completeSession(job.payload.session_id)
+      setSessionComplete(complete)
+      setSessionSummary(complete.session_summary)
+      setShowSummary(true)
+    } else {
+      setTimeout(() => {
+        setCurrentCard(cardResponse.card)
+        setCardsRemaining(cardResponse.cards_remaining)
+        setCardsCompleted(cardResponse.cards_completed)
+      }, 300)
+    }
+    setSubmitError(null)
+    retryPayloadRef.current = null
+    setPendingUserAnswer(null)
+  }
+
+  const buildTypingView = (card: StudyCard): TypingViewModel => {
+    const fromObject = (obj: Record<string, unknown>, key: string) =>
+      typeof obj[key] === "string" ? (obj[key] as string) : null
+
+    const ensureBlank = (text: string, targetAnswer: string) => {
       if (!text) return "____"
       if (text.includes("____")) return text
-      if (answer && text.includes(answer)) {
-        return text.replace(answer, "____")
+      if (targetAnswer && text.includes(targetAnswer)) {
+        return text.replace(targetAnswer, "____")
       }
       return `${text} ____`
     }
 
-    if (typeof card.question === "string") {
-      enSentenceWithBlank = ensureBlank(card.question)
-    } else if (card.question && typeof card.question === "object") {
-      if ("enSentenceWithBlank" in card.question && typeof card.question.enSentenceWithBlank === "string") {
-        enSentenceWithBlank = ensureBlank(card.question.enSentenceWithBlank)
-      } else if ("sentence" in card.question && typeof card.question.sentence === "string") {
-        enSentenceWithBlank = ensureBlank(card.question.sentence)
+    let answer = (card.english_word || card.korean_meaning || "").trim()
+    let koSentence = (card.korean_meaning || "").trim()
+    let enSentenceWithBlank = ""
+    let explanation: string | null = null
+    let exampleCandidates: Array<{ koSentence: string; enSentenceWithBlank: string }> | undefined
+
+    if (card.question && typeof card.question === "object") {
+      const q = card.question as Record<string, unknown>
+      const maybeAnswer = fromObject(q, "answer") || fromObject(q, "target") || fromObject(q, "response")
+      if (maybeAnswer) {
+        answer = maybeAnswer.trim()
       }
-      if ("koSentence" in card.question && typeof card.question.koSentence === "string") {
-        koSentence = card.question.koSentence || koSentence
+      const maybeKo =
+        fromObject(q, "koSentence") || fromObject(q, "ko_sentence") || fromObject(q, "korean_sentence") || koSentence
+      if (maybeKo) {
+        koSentence = maybeKo
       }
-      if ("explanation" in card.question && typeof (card.question as Record<string, unknown>).explanation === "string") {
-        explanation = (card.question as { explanation: string }).explanation
+      const maybeEn =
+        fromObject(q, "enSentenceWithBlank") ||
+        fromObject(q, "en_sentence_with_blank") ||
+        fromObject(q, "sentence") ||
+        fromObject(q, "en_sentence")
+      if (maybeEn) {
+        enSentenceWithBlank = ensureBlank(maybeEn, answer)
       }
-      if ("exampleCandidates" in card.question && Array.isArray((card.question as Record<string, unknown>).exampleCandidates)) {
+      const maybeExplanation =
+        fromObject(q, "explanation") || fromObject(q, "hint") || fromObject(q, "detail") || null
+      explanation = maybeExplanation
+
+      if (Array.isArray((q as Record<string, unknown>).exampleCandidates)) {
         exampleCandidates = (
-          card.question as { exampleCandidates: Array<{ koSentence: string; enSentenceWithBlank: string }> }
+          q as { exampleCandidates: Array<{ koSentence: string; enSentenceWithBlank: string }> }
         ).exampleCandidates.map((c) => ({
-          koSentence: c.koSentence || koSentence,
-          enSentenceWithBlank: ensureBlank(c.enSentenceWithBlank),
+          koSentence: (c.koSentence || koSentence || "").trim(),
+          enSentenceWithBlank: ensureBlank(c.enSentenceWithBlank, answer),
         }))
       }
+    } else if (typeof card.question === "string") {
+      enSentenceWithBlank = ensureBlank(card.question, answer)
     }
 
     if (!enSentenceWithBlank) {
-      enSentenceWithBlank = `____`
+      enSentenceWithBlank = "____"
+    }
+    if (!koSentence) {
+      koSentence = "문맥 정보가 제공되지 않았습니다."
+    }
+    if (!exampleCandidates || exampleCandidates.length === 0) {
+      exampleCandidates = [{ koSentence, enSentenceWithBlank }]
     }
 
     return {
@@ -993,78 +1059,75 @@ export default function LearnPage() {
   const handleRate = async (rating: number) => {
     if (!sessionId || !currentCard) return
 
-    try {
-      let answer: string
-      const allowMcqWithoutSelection = studyMode === "mcq" && (!currentCard.options || currentCard.options.length === 0)
+    const allowMcqWithoutSelection = studyMode === "mcq" && (!currentCard.options || currentCard.options.length === 0)
 
-      if (studyMode === "mcq" && !pendingUserAnswer && !allowMcqWithoutSelection) {
-        return
-      }
-      if (studyMode === "typing" && !pendingUserAnswer) {
-        return
-      }
+    if (studyMode === "mcq" && !pendingUserAnswer && !allowMcqWithoutSelection) {
+      return
+    }
+    if (studyMode === "typing" && !pendingUserAnswer) {
+      return
+    }
 
-      if (pendingUserAnswer) {
-        answer = pendingUserAnswer
-        setPendingUserAnswer(null)
+    let answer: string
+
+    if (pendingUserAnswer) {
+      answer = pendingUserAnswer
+    } else {
+      if (currentCard.quiz_type === "word_to_meaning") {
+        answer = currentCard.korean_meaning || currentCard.english_word
+      } else if (currentCard.quiz_type === "meaning_to_word") {
+        answer = currentCard.english_word || currentCard.korean_meaning
+      } else if (
+        currentCard.quiz_type === "cloze" &&
+        typeof currentCard.question === "object" &&
+        currentCard.question !== null &&
+        "answer" in currentCard.question &&
+        typeof (currentCard.question as Record<string, unknown>).answer === "string"
+      ) {
+        answer = (currentCard.question as { answer: string }).answer
       } else {
-        if (currentCard.quiz_type === "word_to_meaning") {
-          answer = currentCard.korean_meaning || currentCard.english_word
-        } else if (currentCard.quiz_type === "meaning_to_word") {
-          answer = currentCard.english_word || currentCard.korean_meaning
-        } else if (
-          currentCard.quiz_type === "cloze" &&
-          typeof currentCard.question === "object" &&
-          currentCard.question !== null &&
-          "answer" in currentCard.question &&
-          typeof (currentCard.question as Record<string, unknown>).answer === "string"
-        ) {
-          answer = (currentCard.question as { answer: string }).answer
-        } else {
-          answer = currentCard.english_word || currentCard.korean_meaning
-        }
+        answer = currentCard.english_word || currentCard.korean_meaning
       }
-      if (!answer) {
-        answer = ""
-      }
+    }
+    if (!answer) {
+      answer = ""
+    }
 
-      setStudiedCount((prev) => prev + 1)
-      if (rating !== FSRS_RATING.AGAIN) {
-        setCorrectCount((prev) => prev + 1)
-      }
-
-      const answerResponse = await submitAnswer({
+    const submitPayload: SubmitJob = {
+      payload: {
         session_id: sessionId,
         card_id: currentCard.id,
         answer,
-      })
+      },
+      rating,
+      card: currentCard,
+    }
 
-      if (!answerResponse.is_correct && studyMode !== "flip") {
-        saveWrongNote({
-          word: currentCard.english_word,
-          meaning: currentCard.korean_meaning,
-          userAnswer: answerResponse.user_answer,
-        })
-      }
-
-      const cardResponse = await getNextCard(sessionId, quizType)
-
-      if (!cardResponse.card || cardResponse.cards_remaining === 0) {
-        const complete = await completeSession(sessionId)
-        setSessionComplete(complete)
-        setSessionSummary(complete.session_summary)
-        setShowSummary(true)
-      } else {
-        setTimeout(() => {
-          setCurrentCard(cardResponse.card)
-          setCardsRemaining(cardResponse.cards_remaining)
-          setCardsCompleted(cardResponse.cards_completed)
-        }, 300)
-      }
+    try {
+      await runSubmission(submitPayload)
     } catch (error) {
-      console.error("[v0] Submit answer error:", error)
-    } finally {
-      setPendingUserAnswer(null)
+      retryPayloadRef.current = submitPayload
+      setSubmitError("서버 오류로 제출에 실패했습니다. 다시 시도해주세요.")
+      toast({
+        title: "제출에 실패했습니다",
+        description: "서버 오류로 제출하지 못했습니다. 다시 시도해주세요.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRetrySubmit = async () => {
+    const job = retryPayloadRef.current
+    if (!job) return
+    try {
+      await runSubmission(job)
+    } catch (error) {
+      setSubmitError("재시도에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해주세요.")
+      toast({
+        title: "재시도에 실패했습니다",
+        description: "네트워크 상태를 확인한 뒤 다시 시도해주세요.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -1195,6 +1258,22 @@ export default function LearnPage() {
           </div>
           <div className="w-10" />
         </div>
+
+        {submitError && (
+          <div className="px-4 pt-3">
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 flex items-center justify-between gap-3">
+              <span className="text-sm">{submitError}</span>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" variant="destructive" onClick={handleRetrySubmit}>
+                  재시도
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setSubmitError(null)}>
+                  닫기
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {studyMode === "flip" && currentCard && <FlashcardMode {...modeProps} />}
         {studyMode === "mcq" && currentCard && <MultipleChoiceMode {...modeProps} />}
