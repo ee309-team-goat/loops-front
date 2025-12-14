@@ -43,10 +43,11 @@ const FSRS_RATING = {
 
 type Card = StudyCard
 
-interface TypingCard extends Card {
+type TypingViewModel = {
   koSentence: string
   enSentenceWithBlank: string
-  explanation?: string
+  answer: string
+  explanation?: string | null
   exampleCandidates?: Array<{ koSentence: string; enSentenceWithBlank: string }>
 }
 
@@ -66,7 +67,9 @@ interface ModeProps extends SheetHandlers {
   onUserAnswer?: (ans: string | null) => void
 }
 
-interface TypingModeProps extends ModeProps { }
+interface TypingModeProps extends ModeProps {
+  typingView: TypingViewModel
+}
 
 function RatingButtons({ onRate }: { onRate: (rating: number) => void }) {
   return (
@@ -517,6 +520,7 @@ function MultipleChoiceMode({
 
 function SentenceTypingMode({
   card,
+  typingView,
   onRate,
   openWrongNotes,
   openAiQuestion,
@@ -524,6 +528,7 @@ function SentenceTypingMode({
   openPronunciation,
   onUserAnswer,
 }: TypingModeProps) {
+  const router = useRouter()
   const [typedSuffix, setTypedSuffix] = useState("")
   const [status, setStatus] = useState<"idle" | "correct" | "incorrect">("idle")
   const [revealedCount, setRevealedCount] = useState(0)
@@ -534,37 +539,42 @@ function SentenceTypingMode({
   const [showError, setShowError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const answer = card.english_word || card.korean_meaning
+  const answer = (typingView.answer || "").trim()
+
+  const examples =
+    typingView.exampleCandidates && typingView.exampleCandidates.length > 0
+      ? typingView.exampleCandidates
+      : [
+          {
+            koSentence: typingView.koSentence,
+            enSentenceWithBlank: typingView.enSentenceWithBlank,
+          },
+        ]
+
+  const currentExample = useMemo(() => {
+    if (examples.length === 0) {
+      return { koSentence: typingView.koSentence, enSentenceWithBlank: typingView.enSentenceWithBlank }
+    }
+    const idx = exampleIndex % examples.length
+    return examples[idx]
+  }, [examples, exampleIndex, typingView.koSentence, typingView.enSentenceWithBlank])
+
+  if (!answer) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="text-6xl">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-900">타이핑 문제를 표시할 수 없습니다</h2>
+          <p className="text-gray-600">홈으로 돌아가 다시 시도해주세요.</p>
+          <Button onClick={() => router.push("/dashboard")}>홈으로</Button>
+        </div>
+      </div>
+    )
+  }
 
   const hintPrefix = answer.slice(0, revealedCount)
   const fullInput = hintPrefix + typedSuffix
   const normalizedAnswer = answer.trim().toLowerCase()
-
-  const currentExample = useMemo(() => {
-
-    if (typeof card.question === "object" && card.question !== null) {
-      if ("exampleCandidates" in card.question && Array.isArray(card.question.exampleCandidates)) {
-        const candidates = card.question.exampleCandidates as Array<{ koSentence: string; enSentenceWithBlank: string }>
-        if (candidates.length > 0) {
-          const idx = exampleIndex % candidates.length
-          return candidates[idx]
-        }
-      }
-      if ("koSentence" in card.question && "enSentenceWithBlank" in card.question) {
-        return {
-          koSentence: (card.question as { koSentence: string }).koSentence,
-          enSentenceWithBlank: (card.question as { enSentenceWithBlank: string }).enSentenceWithBlank,
-        }
-      }
-      if ("sentence" in card.question && typeof card.question.sentence === "string") {
-        return { koSentence: card.korean_meaning, enSentenceWithBlank: card.question.sentence }
-      }
-    }
-    if (typeof card.question === "string") {
-      return { koSentence: card.korean_meaning, enSentenceWithBlank: card.question }
-    }
-    return { koSentence: card.korean_meaning, enSentenceWithBlank: card.english_word || "" }
-  }, [card, exampleIndex])
 
   const evaluateInput = useCallback(
     (nextFullInput: string) => {
@@ -600,7 +610,7 @@ function SentenceTypingMode({
         setWasIncorrect(true)
       }
     },
-    [normalizedAnswer, wasIncorrect, answer, currentExample],
+    [normalizedAnswer, wasIncorrect],
   )
 
   useEffect(() => {
@@ -678,16 +688,12 @@ function SentenceTypingMode({
 
   const handleShowAnswer = () => {
     setShowAnswer(true)
+    onUserAnswer?.(answer)
   }
 
   const handleOtherExample = () => {
-
-    if (typeof card.question === "object" && card.question !== null && "exampleCandidates" in card.question) {
-      const candidates = card.question.exampleCandidates as Array<{ koSentence: string; enSentenceWithBlank: string }>
-      if (Array.isArray(candidates) && candidates.length > 1) {
-        setExampleIndex((prev) => prev + 1)
-      }
-
+    if (examples.length > 1) {
+      setExampleIndex((prev) => prev + 1)
     }
   }
 
@@ -700,9 +706,10 @@ function SentenceTypingMode({
   })()
 
   const renderSentence = () => {
-    const parts = currentExample.enSentenceWithBlank.split("____")
+    const sentence = currentExample.enSentenceWithBlank || "____"
+    const parts = sentence.split("____")
     if (parts.length !== 2) {
-      return <span>{currentExample.enSentenceWithBlank}</span>
+      return <span>{sentence}</span>
     }
 
     return (
@@ -735,11 +742,7 @@ function SentenceTypingMode({
   }
 
   const hasOtherExamples =
-    typeof card.question === "object" &&
-    card.question !== null &&
-    "exampleCandidates" in card.question &&
-    Array.isArray(card.question.exampleCandidates) &&
-    card.question.exampleCandidates.length > 1
+    examples.length > 1
 
   const showInputUI = status !== "correct" && !showAnswer
   const showActionBar = status === "correct" || showAnswer
@@ -820,7 +823,7 @@ function SentenceTypingMode({
                 <div className="bg-gray-100 rounded-xl p-4 text-center">
                   <p className="text-sm text-gray-500 mb-1">정답</p>
                   <p className="text-2xl font-bold text-indigo-600">{answer}</p>
-                  {typingCard.explanation && <p className="text-sm text-gray-600 mt-2">{typingCard.explanation}</p>}
+                  {typingView.explanation && <p className="text-sm text-gray-600 mt-2">{typingView.explanation}</p>}
                 </div>
               )}
             </div>
@@ -832,7 +835,7 @@ function SentenceTypingMode({
                 onAiQuestion={openAiQuestion}
                 onWordInfo={openWordInfo}
                 onPronunciation={openPronunciation}
-                otherExampleEnabled={hasOtherExamples ?? false}
+                otherExampleEnabled={hasOtherExamples}
               />
             )}
 
@@ -870,12 +873,15 @@ export default function LearnPage() {
   const [aiQuestionOpen, setAiQuestionOpen] = useState(false)
   const [wordInfoOpen, setWordInfoOpen] = useState(false)
   const [pronunciationOpen, setPronunciationOpen] = useState(false)
-  const unknownModeWarnedRef = useRef(false)
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
 
   const quizType: QuizType =
-    studyMode === "mcq" ? "word_to_meaning" : studyMode === "flip" ? "word_to_meaning" : "word_to_meaning"
+    studyMode === "mcq"
+      ? "word_to_meaning"
+      : studyMode === "typing"
+        ? "meaning_to_word"
+        : "word_to_meaning"
 
   useEffect(() => {
     const initSession = async () => {
@@ -931,6 +937,59 @@ export default function LearnPage() {
       ? `${remainingCount}문제를 풀어야 연속 학습을 달성할 수 있어요!`
       : "지금 나가도 오늘 목표는 이미 달성했어요!"
 
+  const buildTypingView = (card: StudyCard): TypingViewModel => {
+    const answer = (card.english_word || card.korean_meaning || "").trim()
+    let koSentence = card.korean_meaning || ""
+    let enSentenceWithBlank = ""
+    let explanation: string | null = null
+    let exampleCandidates: Array<{ koSentence: string; enSentenceWithBlank: string }> | undefined
+
+    const ensureBlank = (text: string) => {
+      if (!text) return "____"
+      if (text.includes("____")) return text
+      if (answer && text.includes(answer)) {
+        return text.replace(answer, "____")
+      }
+      return `${text} ____`
+    }
+
+    if (typeof card.question === "string") {
+      enSentenceWithBlank = ensureBlank(card.question)
+    } else if (card.question && typeof card.question === "object") {
+      if ("enSentenceWithBlank" in card.question && typeof card.question.enSentenceWithBlank === "string") {
+        enSentenceWithBlank = ensureBlank(card.question.enSentenceWithBlank)
+      } else if ("sentence" in card.question && typeof card.question.sentence === "string") {
+        enSentenceWithBlank = ensureBlank(card.question.sentence)
+      }
+      if ("koSentence" in card.question && typeof card.question.koSentence === "string") {
+        koSentence = card.question.koSentence || koSentence
+      }
+      if ("explanation" in card.question && typeof (card.question as Record<string, unknown>).explanation === "string") {
+        explanation = (card.question as { explanation: string }).explanation
+      }
+      if ("exampleCandidates" in card.question && Array.isArray((card.question as Record<string, unknown>).exampleCandidates)) {
+        exampleCandidates = (
+          card.question as { exampleCandidates: Array<{ koSentence: string; enSentenceWithBlank: string }> }
+        ).exampleCandidates.map((c) => ({
+          koSentence: c.koSentence || koSentence,
+          enSentenceWithBlank: ensureBlank(c.enSentenceWithBlank),
+        }))
+      }
+    }
+
+    if (!enSentenceWithBlank) {
+      enSentenceWithBlank = `____`
+    }
+
+    return {
+      koSentence,
+      enSentenceWithBlank,
+      answer,
+      explanation,
+      exampleCandidates,
+    }
+  }
+
   const handleRate = async (rating: number) => {
     if (!sessionId || !currentCard) return
 
@@ -941,20 +1000,32 @@ export default function LearnPage() {
       if (studyMode === "mcq" && !pendingUserAnswer && !allowMcqWithoutSelection) {
         return
       }
+      if (studyMode === "typing" && !pendingUserAnswer) {
+        return
+      }
 
       if (pendingUserAnswer) {
         answer = pendingUserAnswer
         setPendingUserAnswer(null)
       } else {
         if (currentCard.quiz_type === "word_to_meaning") {
-          answer = currentCard.korean_meaning
+          answer = currentCard.korean_meaning || currentCard.english_word
         } else if (currentCard.quiz_type === "meaning_to_word") {
-          answer = currentCard.english_word
-        } else if (currentCard.quiz_type === "cloze" && typeof currentCard.question === "object") {
-          answer = currentCard.question.answer
+          answer = currentCard.english_word || currentCard.korean_meaning
+        } else if (
+          currentCard.quiz_type === "cloze" &&
+          typeof currentCard.question === "object" &&
+          currentCard.question !== null &&
+          "answer" in currentCard.question &&
+          typeof (currentCard.question as Record<string, unknown>).answer === "string"
+        ) {
+          answer = (currentCard.question as { answer: string }).answer
         } else {
           answer = currentCard.english_word || currentCard.korean_meaning
         }
+      }
+      if (!answer) {
+        answer = ""
       }
 
       setStudiedCount((prev) => prev + 1)
@@ -966,8 +1037,6 @@ export default function LearnPage() {
         session_id: sessionId,
         card_id: currentCard.id,
         answer,
-        quiz_type: currentCard.quiz_type,
-        response_time_ms: null,
       })
 
       if (!answerResponse.is_correct && studyMode !== "flip") {
@@ -1037,18 +1106,22 @@ export default function LearnPage() {
                   <span className="text-gray-600">학습한 카드</span>
                   <span className="font-semibold text-gray-900">{sessionSummary.total_cards}개</span>
                 </div>
-                <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
-                  <span className="text-gray-600">정답</span>
-                  <span className="font-semibold text-green-600">{sessionSummary.correct}개</span>
-                </div>
-                <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
-                  <span className="text-gray-600">오답</span>
-                  <span className="font-semibold text-red-600">{sessionSummary.wrong}개</span>
-                </div>
-                <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
-                  <span className="text-gray-600">정답률</span>
-                  <span className="font-semibold text-gray-900">{accuracyPct}%</span>
-                </div>
+                {studyMode !== "flip" && (
+                  <>
+                    <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
+                      <span className="text-gray-600">정답</span>
+                      <span className="font-semibold text-green-600">{sessionSummary.correct}개</span>
+                    </div>
+                    <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
+                      <span className="text-gray-600">오답</span>
+                      <span className="font-semibold text-red-600">{sessionSummary.wrong}개</span>
+                    </div>
+                    <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
+                      <span className="text-gray-600">정답률</span>
+                      <span className="font-semibold text-gray-900">{accuracyPct}%</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between p-4 bg-gray-50 rounded-lg">
                   <span className="text-gray-600">학습 시간</span>
                   <span className="font-semibold text-gray-900">
@@ -1090,6 +1163,8 @@ export default function LearnPage() {
     )
   }
 
+  const typingView = currentCard ? buildTypingView(currentCard) : null
+
   const modeProps: ModeProps = {
     card: currentCard,
     cards: [currentCard],
@@ -1123,7 +1198,19 @@ export default function LearnPage() {
 
         {studyMode === "flip" && currentCard && <FlashcardMode {...modeProps} />}
         {studyMode === "mcq" && currentCard && <MultipleChoiceMode {...modeProps} />}
-        {studyMode === "typing" && currentCard && <SentenceTypingMode {...(modeProps as TypingModeProps)} />}
+        {studyMode === "typing" && currentCard && typingView && (
+          <SentenceTypingMode {...modeProps} typingView={typingView} />
+        )}
+        {studyMode === "typing" && currentCard && !typingView && (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center space-y-4 max-w-md">
+              <div className="text-6xl">⚠️</div>
+              <h2 className="text-xl font-bold text-gray-900">타이핑 문제를 표시할 수 없습니다</h2>
+              <p className="text-gray-600">홈으로 돌아가 다시 시도해주세요.</p>
+              <Button onClick={() => router.push("/dashboard")}>홈으로</Button>
+            </div>
+          </div>
+        )}
         {studyMode !== "flip" && studyMode !== "mcq" && studyMode !== "typing" && (
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="text-center space-y-4 max-w-md">
